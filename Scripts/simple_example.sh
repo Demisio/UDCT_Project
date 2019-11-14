@@ -8,4 +8,4 @@ python create_h5_dataset.py ./Data/Example/Genuine/ ./Data/Example/Synthetic/ ./
 mkdir -p Models
 
 # Train the network
-python main.py --dataset=./Data/Example/example_dataset.h5 --name=example_model 
+python main.py --dataset=./Data/Example/example_dataset.h5 --name=example_model --log_name=example_test

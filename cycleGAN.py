@@ -5,9 +5,9 @@ import tensorflow as tf
 
 import h5py
 import numpy as np
-
+import time
 import os
-
+import logging
 import sys
 sys.path.append('./Discriminator')
 sys.path.append('./Generator')
@@ -45,7 +45,8 @@ class Model:
                  deconv='transpose',\
                  patchgan='Patch70',\
                  verbose=False,\
-                 gen_only=False):
+                 gen_only=False,
+                 log_name='filler'):
         """
         Create a Model (init). It will check, if a model with such a name has already been saved. If so, the model is being 
         loaded. Otherwise, a new model with this name will be created. It will only be saved, if the save function is being 
@@ -100,6 +101,8 @@ class Model:
                 self.saver    = tf.train.Saver()
             else:
                 self.saver    = tf.train.Saver(var_list=self.list_gen)
+
+        self.log_name = log_name
     
     def create(self):
         """
@@ -251,7 +254,7 @@ class Model:
         
         INPUT: sess         - The current running session
         """
-        self.saver.save(sess,"./Models/" + self.mod_name + ".ckpt")
+        self.saver.save(sess,"./Models/" + self.mod_name + '/' + self.mod_name + ".ckpt")
             
     def init(self,sess):
         """
@@ -260,7 +263,7 @@ class Model:
         INPUT: sess         - The current running session
         """
         if not os.path.isfile(\
-                "./Models/" + self.mod_name + ".ckpt.meta"):
+                "./Models/" + self.mod_name + '/' + self.mod_name + ".ckpt.meta"):
             sess.run(tf.global_variables_initializer())
             return 0
         else:
@@ -276,9 +279,16 @@ class Model:
         
         INPUT: sess         - The current running session
         """
-        self.saver.restore(sess, "./Models/" + self.mod_name + ".ckpt")
+        self.saver.restore(sess, "./Models/" + self.mod_name + '/' + self.mod_name + ".ckpt")
     
-    def train(self,batch_size=32,lambda_c=0.,lambda_h=0.,epoch=0,save=True,syn_noise=0.,real_noise=0.):
+    def train(self,batch_size=32,lambda_c=0.,lambda_h=0.,n_epochs=0,save=True,syn_noise=0.,real_noise=0.):
+
+        for epoch in range(n_epochs):
+        # Sort out proper logging, also add checkpoints & continue from there if necessary
+        self._setup_log_dir_and_continue_mode()
+        # Create tensorboard summaries (AUC values, losses, accuracy etc.)
+        self._make_tensorboard_summaries()
+
         f              = h5py.File(self.data_file,"r")
         
         num_samples    = min(self.a_size,self.b_size)
@@ -290,11 +300,14 @@ class Model:
         if self.verbose:
             print('lambda_c: ' + str(lambda_c))
             print('lambda_h: ' + str(lambda_h))
-        
+
+        start_time = time.time()
+        logging.info('Start time of Epoch %d : %.3f' % (epoch, start_time))
+
         with tf.Session(graph=self.graph) as sess:
             # initialize variables
             self.init(sess)
-            
+
             vec_lcA     = []
             vec_lcB     = []
             
@@ -320,7 +333,7 @@ class Model:
                 rel_noise = 0.9**epoch
             else:
                 rel_noise = 0.
-            
+
             for iteration in range(num_iterations):    
                 images_a   = f['A/data'][np.sort(a_order[(iteration*batch_size):((iteration+1)*batch_size)]),:,:,:]
                 images_b   = f['B/data'][np.sort(b_order[(iteration*batch_size):((iteration+1)*batch_size)]),:,:,:]
@@ -447,11 +460,32 @@ class Model:
                       "          Loss_dis_A={:.4f},   Loss_dis_B={:.4f}".format(np.mean(vec_l_dis_A),np.mean(vec_l_dis_B)) + \
                       ",   Loss_gen_A={:.4f},   Loss_gen_B={:.4f}".format(np.mean(vec_l_gen_A),np.mean(vec_l_gen_B))\
                           ,end="        ")
-            
+
+
+            # summary_str = sess.run(self.summary,
+            #                             feed_dict = {self.rel_lr_sum: rel_lr})
+            # self.summary_writer.add_summary(summary_str, epoch)
+            # self.summary_writer.flush()
+
+                train_summary_dis = sess.run(self.train_loss_dis,
+                                                  feed_dict = {self.train_loss_dis_A_summary_ : np.mean(vec_l_dis_A),
+                                                               self.train_loss_dis_B_summary_ : np.mean(vec_l_dis_B)})
+
+                train_summary_gen = sess.run(self.train_loss_gen,
+                                                  feed_dict = {self.train_loss_gen_A_summary_: np.mean(vec_l_gen_A),
+                                                               self.train_loss_gen_B_summary_: np.mean(vec_l_gen_B)})
+
+                self.summary_writer.add_summary(train_summary_dis, epoch)
+                self.summary_writer.add_summary(train_summary_gen, epoch)
+
+                elapsed_time = time.time() - start_time
+                logging.info('Epoch %d took %.3f seconds' % (epoch, elapsed_time))
+
             # Save model
+            ## TODO: save the model which performs best on validation data
             if save:
                 self.save(sess)
-                cv2.imwrite("./Models/Images/" + self.mod_name + "_Epoch_" + str(epoch) + ".png",sneak_peak[:,:,[2,1,0]]*255)
+                cv2.imwrite("./Models/Images/" + self.mod_name + '/' + self.mod_name + "_Epoch_" + str(epoch) + ".png",sneak_peak[:,:,[2,1,0]]*255)
             print("")
         
         f.close()
@@ -466,7 +500,7 @@ class Model:
         return [loss_gen_A,loss_gen_B,loss_dis_A,loss_dis_B]
 
     def predict(self,lambda_c=0.,lambda_h=0.):
-        f              = h5py.File(self.data_file,"r")
+        f          = h5py.File(self.data_file,"r")
         
         rand_a     = np.random.randint(self.a_size-32)
         rand_b     = np.random.randint(self.b_size-32)
@@ -489,7 +523,7 @@ class Model:
     
     def generator_A(self,batch_size=32,lambda_c=0.,lambda_h=0.):
         f              = h5py.File(self.data_file,"r")
-        f_save         = h5py.File("./Models/" + self.mod_name + '_gen_A.h5',"w")
+        f_save         = h5py.File("./Models/" + self.mod_name + '/' + self.mod_name + '_gen_A.h5',"w")
         
         # Find number of samples
         num_samples    = self.b_size
@@ -527,7 +561,7 @@ class Model:
     
     def generator_B(self,batch_size=32,lambda_c=0.,lambda_h=0.):
         f              = h5py.File(self.data_file,"r")
-        f_save         = h5py.File("./Models/" + self.mod_name + '_gen_B.h5',"w")
+        f_save         = h5py.File("./Models/" + self.mod_name + '/' + self.mod_name + '_gen_B.h5',"w")
         
         # Find number of samples
         num_samples    = self.a_size
@@ -585,3 +619,62 @@ class Model:
             
         f.close()
         return l_rA,l_rB,l_fA,l_fB
+
+    # Helper Functions
+    def _make_tensorboard_summaries(self):
+        with self.graph.as_default():
+            self.rel_lr_ = tf.placeholder(tf.float32, shape= [], name= 'rel_lr_')
+            self.rel_lr_sum = tf.summary.scalar('learning_rate', self.rel_lr_)
+            # Build the summary Tensor based on the TF collection of Summaries.
+            self.summary = tf.summary.merge_all()
+
+
+            self.train_loss_dis_A_summary_ = tf.placeholder(tf.float32, shape=[], name='l_D_A')
+            loss_dis_A_summary = tf.summary.scalar('Loss of Discr. A', self.train_loss_dis_A_summary_)
+
+            self.train_loss_dis_B_summary_ = tf.placeholder(tf.float32, shape=[], name='l_D_B')
+            loss_dis_B_summary = tf.summary.scalar('Loss of Discr. B', self.train_loss_dis_B_summary_)
+
+            self.train_loss_gen_A_summary_ = tf.placeholder(tf.float32, shape=[], name='l_G_A')
+            loss_gen_A_summary = tf.summary.scalar('Loss of Gen. A', self.train_loss_gen_A_summary_)
+
+            self.train_loss_gen_B_summary_ = tf.placeholder(tf.float32, shape=[], name='l_G_B')
+            loss_gen_B_summary = tf.summary.scalar('Loss of Gen. B', self.train_loss_gen_B_summary_)
+
+            self.train_loss_dis = tf.summary.merge([loss_dis_A_summary, loss_dis_B_summary])
+            self.train_loss_gen = tf.summary.merge([loss_gen_A_summary, loss_gen_B_summary])
+
+
+    def _setup_log_dir_and_continue_mode(self):
+
+        # Default values
+        self.log_dir = os.path.join('/das/work/p18/p18203/Code/UDCT/logs', self.log_name)
+        self.init_checkpoint_path = None
+        self.continue_run = False
+        self.init_step = 0
+
+        # if self.do_checkpoints:
+        #     # If a checkpoint file already exists enable continue mode
+        #     if tf.gfile.Exists(self.log_dir):
+        #         init_checkpoint_path = tf_utils.get_latest_model_checkpoint_path(self.log_dir, 'model.ckpt')
+        #         if init_checkpoint_path is not False:
+        #             self.init_checkpoint_path = init_checkpoint_path
+        #             self.continue_run = True
+        #             self.init_step = int(self.init_checkpoint_path.split('/')[-1].split('-')[-1])
+        #             self.log_dir += '_cont'
+        #
+        #             logging.info(
+        #                 '--------------------------- Continuing previous run --------------------------------')
+        #             logging.info('Checkpoint path: %s' % self.init_checkpoint_path)
+        #             logging.info('Latest step was: %d' % self.init_step)
+        #             logging.info(
+        #                 '------------------------------------------------------------------------------------')
+
+        tf.gfile.MakeDirs(self.log_dir)
+        self.summary_writer = tf.summary.FileWriter(self.log_dir, self.graph)
+        #
+        # # Copy experiment config file to log_dir for future reference
+        # shutil.copy(self.exp_config.__file__, self.log_dir)
+
+
+

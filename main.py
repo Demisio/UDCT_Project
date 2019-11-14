@@ -5,6 +5,9 @@ from os import environ as cuda_environment
 import os
 import numpy as np
 
+
+## Modify batch_size
+
 if __name__ == "__main__":
     # List of floats
     sub_value_f = {}
@@ -31,6 +34,7 @@ if __name__ == "__main__":
     sub_string['deconv']       = 'transpose'     # Upsampling method: 'transpose' or 'resize'
     sub_string['PatchGAN']     = 'Patch70'       # Choose the Gan type: 'Patch34', 'Patch70', 'Patch142', 'MultiPatch'
     sub_string['mode']         = 'training'      # 'train', 'gen_A', 'gen_B'
+    sub_string['log_name']     = 'logs'
     
     # Create complete dictonary
     var_dict  = sub_string.copy()
@@ -69,7 +73,7 @@ if __name__ == "__main__":
     
     # Restrict usage of GPUs
     cuda_environment["CUDA_VISIBLE_DEVICES"]=str(var_dict['gpu'])
-    with open('Models/'+var_dict['name']+"_params.txt", "w") as myfile:
+    with open('Models/'+ var_dict['name'] + '/' + var_dict['name']+ "_params.txt", "w") as myfile:
         for key in sorted(var_dict):
             myfile.write(key + "," + str(var_dict[key]) + "\n")
     
@@ -90,7 +94,8 @@ if __name__ == "__main__":
         deconv=var_dict['deconv'],\
         patchgan=var_dict['PatchGAN'],\
         verbose=(var_dict['verbose']!=0),\
-        gen_only=gen_only)
+        gen_only=gen_only,
+        log_name=var_dict['log_name'])
     
     # Plot parameter properties, if applicable
     if var_dict['verbose']:
@@ -124,10 +129,10 @@ if __name__ == "__main__":
             loss_gen_B.append(lgB)
             loss_dis_A.append(ldA)
             loss_dis_B.append(ldB)
-            np.save("./Models/" + var_dict['name'] + '_loss_gen_A.npy',np.array(loss_gen_A).T)
-            np.save("./Models/" + var_dict['name'] + '_loss_gen_B.npy',np.array(loss_gen_B).T)
-            np.save("./Models/" + var_dict['name'] + '_loss_dis_A.npy',np.array(loss_dis_A).T)
-            np.save("./Models/" + var_dict['name'] + '_loss_dis_B.npy',np.array(loss_dis_B).T)
+            np.save("./Models/" + var_dict['name'] + '/' + var_dict['name'] + '_loss_gen_A.npy',np.array(loss_gen_A).T)
+            np.save("./Models/" + var_dict['name'] + '/' + var_dict['name'] + '_loss_gen_B.npy',np.array(loss_gen_B).T)
+            np.save("./Models/" + var_dict['name'] + '/' + var_dict['name'] + '_loss_dis_A.npy',np.array(loss_dis_A).T)
+            np.save("./Models/" + var_dict['name'] + '/' + var_dict['name'] + '_loss_dis_B.npy',np.array(loss_dis_B).T)
             
     elif var_dict['mode'] == 'gen_A':
         model.generator_A(batch_size=var_dict['batch_size'],\
