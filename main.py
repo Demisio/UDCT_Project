@@ -34,7 +34,8 @@ if __name__ == "__main__":
     sub_string['deconv']       = 'transpose'     # Upsampling method: 'transpose' or 'resize'
     sub_string['PatchGAN']     = 'Patch70'       # Choose the Gan type: 'Patch34', 'Patch70', 'Patch142', 'MultiPatch'
     sub_string['mode']         = 'training'      # 'train', 'gen_A', 'gen_B'
-    sub_string['log_name']     = 'logs'
+    sub_string['log_name']     = 'logs'          # log file directory
+    sub_string['checkpoint']   = 'latest'        # which checkpoint should be loaded for generators at test time 'latest' / 'best_f1'
     
     # Create complete dictonary
     var_dict  = sub_string.copy()
@@ -108,32 +109,21 @@ if __name__ == "__main__":
             
     elif var_dict['mode'] == 'training':
         # Train the model
-        loss_gen_A = []
-        loss_gen_B = []
-        loss_dis_A = []
-        loss_dis_B = []
-                
-        for i in range(var_dict['epoch']):
-            print('')
-            print('Epoch: ' + str(i+1))
-            print('')
-            lgA,lgB,ldA,ldB = \
-            model.train(batch_size=var_dict['batch_size'],\
-                        lambda_c=var_dict['lambda_c'],\
-                        lambda_h=var_dict['lambda_h'],\
-                        save=bool(var_dict['save']),\
-                        epoch=i,\
-                        syn_noise=var_dict['syn_noise'],\
-                        real_noise=var_dict['real_noise'])
-            loss_gen_A.append(lgA)
-            loss_gen_B.append(lgB)
-            loss_dis_A.append(ldA)
-            loss_dis_B.append(ldB)
-            np.save("./Models/" + var_dict['name'] + '/' + var_dict['name'] + '_loss_gen_A.npy',np.array(loss_gen_A).T)
-            np.save("./Models/" + var_dict['name'] + '/' + var_dict['name'] + '_loss_gen_B.npy',np.array(loss_gen_B).T)
-            np.save("./Models/" + var_dict['name'] + '/' + var_dict['name'] + '_loss_dis_A.npy',np.array(loss_dis_A).T)
-            np.save("./Models/" + var_dict['name'] + '/' + var_dict['name'] + '_loss_dis_B.npy',np.array(loss_dis_B).T)
-            
+
+        loss_gen_A,loss_gen_B,loss_dis_A,loss_dis_B = \
+        model.train(batch_size=var_dict['batch_size'],\
+                    lambda_c=var_dict['lambda_c'],\
+                    lambda_h=var_dict['lambda_h'],\
+                    save=bool(var_dict['save']),\
+                    n_epochs=var_dict['epoch'],\
+                    syn_noise=var_dict['syn_noise'],\
+                    real_noise=var_dict['real_noise'])
+
+        # np.save("./Models/" + var_dict['name'] + '/' + var_dict['name'] + '_loss_gen_A.npy',np.array(loss_gen_A).T)
+        # np.save("./Models/" + var_dict['name'] + '/' + var_dict['name'] + '_loss_gen_B.npy',np.array(loss_gen_B).T)
+        # np.save("./Models/" + var_dict['name'] + '/' + var_dict['name'] + '_loss_dis_A.npy',np.array(loss_dis_A).T)
+        # np.save("./Models/" + var_dict['name'] + '/' + var_dict['name'] + '_loss_dis_B.npy',np.array(loss_dis_B).T)
+
     elif var_dict['mode'] == 'gen_A':
         model.generator_A(batch_size=var_dict['batch_size'],\
                           lambda_c=var_dict['lambda_c'],\
@@ -142,4 +132,5 @@ if __name__ == "__main__":
     elif var_dict['mode'] == 'gen_B':
         model.generator_B(batch_size=var_dict['batch_size'],\
                           lambda_c=var_dict['lambda_c'],\
-                          lambda_h=var_dict['lambda_h'])
+                          lambda_h=var_dict['lambda_h'],
+                          checkpoint=var_dict['checkpoint'])

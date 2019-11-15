@@ -8,8 +8,8 @@ import logging
 change these paths and names according to the experiment
 '''
 
-filename = "Models/example_model_gen_B.h5"
-path = 'Images/example/'
+filename = "Models/test_example_2/test_example_2_gen_B.h5"
+path = 'Images/test_example_2/'
 name = 'example'
 filetype = '.png'
 

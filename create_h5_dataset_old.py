@@ -22,12 +22,11 @@ def get_file_list(data_path):
     # Create list of all png files
     file_list = []
     for element in os.listdir(data_path):
-        if '.tif' in element:
+        if element[-4:] == ".png":
             file_list.append(data_path + element)
     
-    print(element)
+    
     # Compare sizes
-    test = file_list[0]
     dimensions = cv2.imread(file_list[0],cv2.IMREAD_UNCHANGED).shape
     for i in range(1,len(file_list)):
         if not np.array_equal(dimensions,cv2.imread(file_list[i],cv2.IMREAD_UNCHANGED).shape):
@@ -43,7 +42,7 @@ def get_file_list(data_path):
             
     return file_list,dimensions,flag
 
-def main(): #raw_path, syn_path, filename
+def main():
     # Check if the right amount of arguments has been given to the program
     if len(sys.argv[1:]) != 3:
         print('This script recuires three arguments in order to work:')
@@ -55,7 +54,7 @@ def main(): #raw_path, syn_path, filename
         print(' ')
         print('Script aborted')
         return -1
-
+    
     # get the addresses
     raw_path    = sys.argv[1]
     syn_path    = sys.argv[2]
@@ -122,5 +121,3 @@ def main(): #raw_path, syn_path, filename
     
 if __name__ == "__main__":
     main()
-    # './Data/Heart/06_WK1_03_Cropabs/', './Data/Heart/06_WK1_03_Fusion/', './Data/Heart/heart_train_set.h5'
-

@@ -12,14 +12,17 @@ import sys
 sys.path.append('./Discriminator')
 sys.path.append('./Generator')
 sys.path.append('./Utilities/')
-import Res_Gen
-import PatchGAN34
-import PatchGAN70
-import PatchGAN142
-import MultiPatch
-import HisDis
-import Utilities
+from Generator import Res_Gen
+from Discriminator import PatchGAN34
+from Discriminator import PatchGAN70
+from Discriminator import PatchGAN142
+from Discriminator import MultiPatch
+from Discriminator import HisDis
+from Utilities import Utilities
 import cv2
+
+from tfwrapper import utils as tf_utils
+
 class Model:
     """
     ToDo
@@ -95,14 +98,20 @@ class Model:
         self.buffer_fake_a       = np.zeros([self.buffer_size,self.imsize,self.imsize,self.a_chan])
         self.buffer_fake_b       = np.zeros([self.buffer_size,self.imsize,self.imsize,self.b_chan])
         
-        # Create the model saver
+        # # Create the model saver
+        # with self.graph.as_default():
+        #     if not self.gen_only:
+        #         self.saver    = tf.train.Saver()
+        #     else:
+        #         self.saver    = tf.train.Saver(var_list=self.list_gen)
+
         with self.graph.as_default():
-            if not self.gen_only:
-                self.saver    = tf.train.Saver()
-            else:
-                self.saver    = tf.train.Saver(var_list=self.list_gen)
+            self.saver = tf.train.Saver(max_to_keep=2, keep_checkpoint_every_n_hours=2)
+            #self.saver_f1 = tf.train.Saver(max_to_keep=2)
 
         self.log_name = log_name
+
+
     
     def create(self):
         """
@@ -110,7 +119,9 @@ class Model:
         """
         # Create a graph and add all layers
         self.graph = tf.Graph()
+
         with self.graph.as_default():
+
             # Define variable learning rate and dis_noise
             self.relative_lr    = tf.placeholder_with_default([1.],[1],name="relative_lr")
             self.relative_lr    = self.relative_lr[0]
@@ -227,9 +238,8 @@ class Model:
             self.loss_gen_B  = tf.reduce_mean(tf.square(self.dis_fake_B)) +\
                                self.lambda_h * tf.reduce_mean(tf.square(self.dis_fake_Bh)) +\
                                self.lambda_c * self.loss_cyc/2.
-                
-        # Create the different optimizer
-        with self.graph.as_default():
+
+
             # Optimizer for Gen
             self.list_gen        = []
             for var in tf.trainable_variables():
@@ -245,72 +255,86 @@ class Model:
                     self.list_dis.append(var)
             optimizer_dis = tf.train.AdamOptimizer(learning_rate=self.relative_lr*0.0002,beta1=0.5)
             self.opt_dis  = optimizer_dis.minimize(self.loss_dis_A + self.loss_dis_B,var_list=self.list_dis)
-            
-    def save(self,sess):
-        """
-        Save the model parameter in a ckpt file. The filename is as 
-        follows:
-        ./Models/<mod_name>.ckpt
-        
-        INPUT: sess         - The current running session
-        """
-        self.saver.save(sess,"./Models/" + self.mod_name + '/' + self.mod_name + ".ckpt")
-            
-    def init(self,sess):
-        """
-        Init the model. If the model exists in a file, load the model. Otherwise, initalize the variables
-        
-        INPUT: sess         - The current running session
-        """
-        if not os.path.isfile(\
-                "./Models/" + self.mod_name + '/' + self.mod_name + ".ckpt.meta"):
-            sess.run(tf.global_variables_initializer())
-            return 0
-        else:
-            if self.gen_only:
-                sess.run(tf.global_variables_initializer())
-            self.load(sess)
-            return 1
-    
-    def load(self,sess):
-        """
-        Load the model from the parameter file:
-        ./Models/<mod_name>.ckpt
-        
-        INPUT: sess         - The current running session
-        """
-        self.saver.restore(sess, "./Models/" + self.mod_name + '/' + self.mod_name + ".ckpt")
-    
-    def train(self,batch_size=32,lambda_c=0.,lambda_h=0.,n_epochs=0,save=True,syn_noise=0.,real_noise=0.):
 
-        for epoch in range(n_epochs):
+            self.sess = tf.Session(graph=self.graph)
+            self.init = tf.global_variables_initializer()
+
+    # def save(self,sess):
+    #     """
+    #     Save the model parameter in a ckpt file. The filename is as
+    #     follows:
+    #     ./Models/<mod_name>.ckpt
+    #
+    #     INPUT: sess         - The current running session
+    #     """
+    #     self.saver.save(sess,"./Models/" + self.mod_name + '/' + self.mod_name + ".ckpt")
+    #
+    # def init(self,sess):
+    #     """
+    #     Init the model. If the model exists in a file, load the model. Otherwise, initalize the variables
+    #
+    #     INPUT: sess         - The current running session
+    #     """
+    #     if not os.path.isfile(\
+    #             "./Models/" + self.mod_name + '/' + self.mod_name + ".ckpt.meta"):
+    #         sess.run(tf.global_variables_initializer())
+    #         return 0
+    #     else:
+    #         if self.gen_only:
+    #             sess.run(tf.global_variables_initializer())
+    #         self.load(sess)
+    #         return 1
+    #
+    # def load(self,sess):
+    #     """
+    #     Load the model from the parameter file:
+    #     ./Models/<mod_name>.ckpt
+    #
+    #     INPUT: sess         - The current running session
+    #     """
+    #     self.saver.restore(sess, "./Models/" + self.mod_name + '/' + self.mod_name + ".ckpt")
+    
+    def train(self, batch_size=32,lambda_c=0.,lambda_h=0.,n_epochs=0,save=True,syn_noise=0.,real_noise=0.):
+
+        self.batch_size = batch_size
         # Sort out proper logging, also add checkpoints & continue from there if necessary
         self._setup_log_dir_and_continue_mode()
         # Create tensorboard summaries (AUC values, losses, accuracy etc.)
         self._make_tensorboard_summaries()
 
-        f              = h5py.File(self.data_file,"r")
-        
-        num_samples    = min(self.a_size,self.b_size)
-        num_iterations = num_samples // batch_size
-        
-        a_order        = np.random.permutation(self.a_size)
-        b_order        = np.random.permutation(self.b_size)
-        
-        if self.verbose:
-            print('lambda_c: ' + str(lambda_c))
-            print('lambda_h: ' + str(lambda_h))
+        self.sess.run(self.init)
 
-        start_time = time.time()
-        logging.info('Start time of Epoch %d : %.3f' % (epoch, start_time))
+        loss_gen_A_list = []
+        loss_gen_B_list = []
+        loss_dis_A_list = []
+        loss_dis_B_list = []
 
-        with tf.Session(graph=self.graph) as sess:
-            # initialize variables
-            self.init(sess)
+        for epoch in range(1, n_epochs+1):
+
+            print('')
+            print('Epoch : %d' % (epoch))
+            print('')
+
+            f = h5py.File(self.data_file, "r")
+
+            num_samples = min(self.a_size, self.b_size)
+            num_iterations = num_samples // batch_size
+
+            a_order        = np.random.permutation(self.a_size)
+            b_order        = np.random.permutation(self.b_size)
+
+            if self.verbose:
+                print('lambda_c: ' + str(lambda_c))
+                print('lambda_h: ' + str(lambda_h))
+
+            start_time = time.time()
+            # print('Start time of Epoch %d : %.3f' % (epoch, start_time))
+
+
 
             vec_lcA     = []
             vec_lcB     = []
-            
+
             vec_ldrA    = []
             vec_ldrAh   = []
             vec_ldrB    = []
@@ -319,22 +343,22 @@ class Model:
             vec_ldfAh   = []
             vec_ldfB    = []
             vec_ldfBh   = []
-            
+
             vec_l_dis_A = []
             vec_l_dis_B = []
             vec_l_gen_A = []
             vec_l_gen_B = []
-            
+
             rel_lr = 1.
             if epoch > 100:
                 rel_lr = 2. - epoch/100.
-            
+
             if epoch < 100:
                 rel_noise = 0.9**epoch
             else:
                 rel_noise = 0.
 
-            for iteration in range(num_iterations):    
+            for iteration in range(num_iterations):
                 images_a   = f['A/data'][np.sort(a_order[(iteration*batch_size):((iteration+1)*batch_size)]),:,:,:]
                 images_b   = f['B/data'][np.sort(b_order[(iteration*batch_size):((iteration+1)*batch_size)]),:,:,:]
                 if images_a.dtype=='uint8':
@@ -349,11 +373,11 @@ class Model:
                     images_b=images_b/float(2**16-1)
                 else:
                     raise ValueError('Dataset B is not int8 or int16')
-                    
+
                 images_a  += np.random.randn(*images_a.shape)*real_noise
                 images_b  += np.random.randn(*images_b.shape)*syn_noise
 
-                _, l_gen_A, im_fake_A, l_gen_B, im_fake_B, cyc_A, cyc_B, sA, sB, sfA, sfB, lcA, lcB = sess.run([self.opt_gen,\
+                _, l_gen_A, im_fake_A, l_gen_B, im_fake_B, cyc_A, cyc_B, sA, sB, sfA, sfB, lcA, lcB = self.sess.run([self.opt_gen,\
                                                                         self.loss_gen_A,\
                                                                         self.fake_A,\
                                                                         self.loss_gen_B,\
@@ -373,7 +397,7 @@ class Model:
                 if self.temp_b_s >= self.buffer_size:
                     rand_vec_a = np.random.permutation(self.buffer_size)[:batch_size]
                     rand_vec_b = np.random.permutation(self.buffer_size)[:batch_size]
-                    
+
                     self.buffer_real_a[rand_vec_a,...] = images_a
                     self.buffer_real_b[rand_vec_b,...] = images_b
                     self.buffer_fake_a[rand_vec_a,...] = im_fake_A
@@ -382,18 +406,18 @@ class Model:
                     low                                = int(self.temp_b_s)
                     high                               = int(min(self.temp_b_s + batch_size,self.buffer_size))
                     self.temp_b_s                      = high
-                    
+
                     self.buffer_real_a[low:high,...]   = images_a[:(high-low),...]
                     self.buffer_real_b[low:high,...]   = images_b[:(high-low),...]
                     self.buffer_fake_a[low:high,...]   = im_fake_A[:(high-low),...]
                     self.buffer_fake_b[low:high,...]   = im_fake_B[:(high-low),...]
-                    
+
                 # Create dataset out of buffer and gen images to train dis
                 dis_real_a                         = np.copy(images_a)
                 dis_real_b                         = np.copy(images_b)
                 dis_fake_a                         = np.copy(im_fake_A)
                 dis_fake_b                         = np.copy(im_fake_B)
-                    
+
                 half_b_s                           = int(batch_size/2)
                 rand_vec_a                         = np.random.permutation(self.temp_b_s)[:half_b_s]
                 rand_vec_b                         = np.random.permutation(self.temp_b_s)[:half_b_s]
@@ -401,10 +425,10 @@ class Model:
                 dis_fake_a[:half_b_s,...]          =  self.buffer_fake_a[rand_vec_a,...]
                 dis_real_b[:half_b_s,...]          =  self.buffer_real_b[rand_vec_b,...]
                 dis_fake_b[:half_b_s,...]          =  self.buffer_fake_b[rand_vec_b,...]
-                                
+
                 _, l_dis_A, l_dis_B, \
                 ldrA,ldrAh,ldfA,ldfAh,\
-                ldrB,ldrBh,ldfB,ldfBh = sess.run([\
+                ldrB,ldrBh,ldfB,ldfBh = self.sess.run([\
                                                 self.opt_dis,
                                                 self.loss_dis_A,
                                                 self.loss_dis_B,
@@ -423,7 +447,7 @@ class Model:
                                                                              self.lambda_h: lambda_h,\
                                                                              self.relative_lr: rel_lr,\
                                                                              self.rel_dis_noise: rel_noise})
-                
+
                 vec_l_dis_A.append(l_dis_A)
                 vec_l_dis_B.append(l_dis_B)
                 vec_l_gen_A.append(l_gen_A)
@@ -431,7 +455,7 @@ class Model:
 
                 vec_lcA.append(lcA)
                 vec_lcB.append(lcB)
-                
+
                 vec_ldrA.append(ldrA)
                 vec_ldrAh.append(ldrAh)
                 vec_ldrB.append(ldrB)
@@ -451,53 +475,85 @@ class Model:
                     cyc_B=cyc_B[np.newaxis,:,:,:]
 
                 if iteration%5==0:
-                    sneak_peak=Utilities.produce_tiled_images(images_a,images_b,im_fake_A, im_fake_B,cyc_A,cyc_B)
-                        
-                    cv2.imshow("",sneak_peak[:,:,[2,1,0]])
+                    self.sneak_peak=Utilities.produce_tiled_images(images_a,images_b,im_fake_A, im_fake_B,cyc_A,cyc_B)
+
+                    cv2.imshow("",self.sneak_peak[:,:,[2,1,0]])
                     cv2.waitKey(1)
-                    
+
                 print("\rTrain: {}/{} ({:.1f}%)".format(iteration+1, num_iterations,(iteration) * 100 / (num_iterations-1)) + \
                       "          Loss_dis_A={:.4f},   Loss_dis_B={:.4f}".format(np.mean(vec_l_dis_A),np.mean(vec_l_dis_B)) + \
                       ",   Loss_gen_A={:.4f},   Loss_gen_B={:.4f}".format(np.mean(vec_l_gen_A),np.mean(vec_l_gen_B))\
                           ,end="        ")
 
 
-            # summary_str = sess.run(self.summary,
+            # summary_str = self.sess.run(self.summary,
             #                             feed_dict = {self.rel_lr_sum: rel_lr})
             # self.summary_writer.add_summary(summary_str, epoch)
             # self.summary_writer.flush()
 
-                train_summary_dis = sess.run(self.train_loss_dis,
-                                                  feed_dict = {self.train_loss_dis_A_summary_ : np.mean(vec_l_dis_A),
-                                                               self.train_loss_dis_B_summary_ : np.mean(vec_l_dis_B)})
+            train_summary_dis = self.sess.run(self.train_loss_dis,
+                                              feed_dict = {self.train_loss_dis_A_summary_ : np.mean(vec_l_dis_A),
+                                                           self.train_loss_dis_B_summary_ : np.mean(vec_l_dis_B)})
 
-                train_summary_gen = sess.run(self.train_loss_gen,
-                                                  feed_dict = {self.train_loss_gen_A_summary_: np.mean(vec_l_gen_A),
-                                                               self.train_loss_gen_B_summary_: np.mean(vec_l_gen_B)})
+            train_summary_gen = self.sess.run(self.train_loss_gen,
+                                              feed_dict = {self.train_loss_gen_A_summary_: np.mean(vec_l_gen_A),
+                                                           self.train_loss_gen_B_summary_: np.mean(vec_l_gen_B)})
 
-                self.summary_writer.add_summary(train_summary_dis, epoch)
-                self.summary_writer.add_summary(train_summary_gen, epoch)
 
-                elapsed_time = time.time() - start_time
-                logging.info('Epoch %d took %.3f seconds' % (epoch, elapsed_time))
+            #get shapes of image tensors for placeholder
+            # self.shape_images_a = images_a.get_shape()
+            # self.shape_images_b = images_b.get_shape()
+            # self.shape_im_fake_A = im_fake_A.get_shape()
+            # self.shape_im_fake_B = im_fake_B.get_shape()
+
+            train_img_sum = self.sess.run(self.img_sum,
+                                          feed_dict={self.img_A_sum_: images_a,
+                                                     self.img_A_fake_sum_: im_fake_A,
+                                                     self.img_B_sum_: images_b,
+                                                     self.img_B_fake_sum_: im_fake_B})
+
+            self.summary_writer.add_summary(train_summary_dis, epoch)
+            self.summary_writer.flush()
+
+            self.summary_writer.add_summary(train_summary_gen, epoch)
+            self.summary_writer.flush()
+
+            self.summary_writer.add_summary(train_img_sum, epoch)
+            self.summary_writer.flush()
+
+
+
+            elapsed_time = time.time() - start_time
+            print('Epoch %d took %.3f seconds' % (epoch, elapsed_time))
 
             # Save model
             ## TODO: save the model which performs best on validation data
-            if save:
-                self.save(sess)
-                cv2.imwrite("./Models/Images/" + self.mod_name + '/' + self.mod_name + "_Epoch_" + str(epoch) + ".png",sneak_peak[:,:,[2,1,0]]*255)
+            # if save:
+            #     self.save(self.sess)
+            #     cv2.imwrite("./Models/Images/" + self.mod_name + '/' + self.mod_name + "_Epoch_" + str(epoch) + ".png",sneak_peak[:,:,[2,1,0]]*255)
             print("")
-        
-        f.close()
-        
-        loss_gen_A = [np.mean(np.square(np.array(vec_ldfA))),np.mean(np.square(np.array(vec_ldfAh))),np.mean(np.array(lcA))]
-        loss_gen_B = [np.mean(np.square(np.array(vec_ldfB))),np.mean(np.square(np.array(vec_ldfBh))),np.mean(np.array(lcB))]
-        loss_dis_A = [np.mean(np.square(np.array(vec_ldrA))),np.mean(np.square(1.-np.array(vec_ldfA))),\
-                      np.mean(np.square(np.array(vec_ldrAh))),np.mean(np.square(1.-np.array(vec_ldfAh)))]
-        loss_dis_B = [np.mean(np.square(np.array(vec_ldrB))),np.mean(np.square(1.-np.array(vec_ldfB))),\
-                      np.mean(np.square(np.array(vec_ldrBh))),np.mean(np.square(1.-np.array(vec_ldfBh)))]
-        
-        return [loss_gen_A,loss_gen_B,loss_dis_A,loss_dis_B]
+
+            f.close()
+
+            loss_gen_A = [np.mean(np.square(np.array(vec_ldfA))),np.mean(np.square(np.array(vec_ldfAh))),np.mean(np.array(lcA))]
+            loss_gen_B = [np.mean(np.square(np.array(vec_ldfB))),np.mean(np.square(np.array(vec_ldfBh))),np.mean(np.array(lcB))]
+            loss_dis_A = [np.mean(np.square(np.array(vec_ldrA))),np.mean(np.square(1.-np.array(vec_ldfA))),\
+                          np.mean(np.square(np.array(vec_ldrAh))),np.mean(np.square(1.-np.array(vec_ldfAh)))]
+            loss_dis_B = [np.mean(np.square(np.array(vec_ldrB))),np.mean(np.square(1.-np.array(vec_ldfB))),\
+                          np.mean(np.square(np.array(vec_ldrBh))),np.mean(np.square(1.-np.array(vec_ldfBh)))]
+
+            loss_gen_A_list.append(loss_gen_A)
+            loss_gen_B_list.append(loss_gen_B)
+            loss_dis_A_list.append(loss_dis_A)
+            loss_dis_B_list.append((loss_dis_B))
+
+            # establish checkpoints
+            if epoch % (n_epochs / 10) == 0 or epoch == n_epochs or epoch == 1:
+                checkpoint_file = os.path.join(self.log_dir, 'model.ckpt')
+                self.saver.save(self.sess, checkpoint_file, global_step=epoch)
+
+
+        return [loss_gen_A_list,loss_gen_B_list,loss_dis_A_list, loss_dis_B_list]
 
     def predict(self,lambda_c=0.,lambda_h=0.):
         f          = h5py.File(self.data_file,"r")
@@ -507,21 +563,23 @@ class Model:
         
         images_a   = f['A/data'][rand_a:(rand_a+32),:,:,:]/255.
         images_b   = f['B/data'][rand_b:(rand_b+32),:,:,:]/255.
-        with tf.Session(graph=self.graph) as sess:
-            # initialize variables
-            self.init(sess)
-                
-            fake_A, fake_B, cyc_A, cyc_B = \
-                sess.run([self.fake_A,self.fake_B,self.cyc_A,self.cyc_B],\
-                         feed_dict={self.A: images_a,\
-                                    self.B: images_b,\
-                                    self.lambda_c: lambda_c,\
-                                    self.lambda_h: lambda_h})
-            
+
+        self.sess.run(tf.global_variables_initializer())
+
+        fake_A, fake_B, cyc_A, cyc_B = \
+            self.sess.run([self.fake_A,self.fake_B,self.cyc_A,self.cyc_B],\
+                     feed_dict={self.A: images_a,\
+                                self.B: images_b,\
+                                self.lambda_c: lambda_c,\
+                                self.lambda_h: lambda_h})
+
         f.close()
         return images_a, images_b, fake_A, fake_B, cyc_A, cyc_B
     
-    def generator_A(self,batch_size=32,lambda_c=0.,lambda_h=0.):
+    def generator_A(self,batch_size=32,lambda_c=0.,lambda_h=0., checkpoint='latest'):
+
+        self.log_dir = os.path.join('/das/work/p18/p18203/Code/UDCT/logs', self.log_name)
+
         f              = h5py.File(self.data_file,"r")
         f_save         = h5py.File("./Models/" + self.mod_name + '/' + self.mod_name + '_gen_A.h5',"w")
         
@@ -530,12 +588,13 @@ class Model:
         num_iterations = num_samples // batch_size
                 
         gen_data       = np.zeros((f['B/data'].shape[0],f['B/data'].shape[1],f['B/data'].shape[2],f['A/data'].shape[3]),dtype=np.uint16)
-        
-        with tf.Session(graph=self.graph) as sess:
-            # initialize variables
-            self.init(sess)
-            
-            for iteration in range(num_iterations):    
+
+        # self.sess.run(self.init)
+        with self.graph.as_default():
+
+            self.load_weights(type=checkpoint)
+
+            for iteration in range(num_iterations):
                 images_b   = f['B/data'][(iteration*batch_size):((iteration+1)*batch_size),:,:,:]
                 if images_b.dtype=='uint8':
                     images_b=images_b/float(2**8-1)
@@ -544,22 +603,25 @@ class Model:
                 else:
                     raise ValueError('Dataset B is not int8 or int16')
 
-                gen_A = sess.run(self.fake_A,feed_dict={self.B: images_b,\
+                gen_A = self.sess.run(self.fake_A,feed_dict={self.B: images_b,\
                                                         self.lambda_c: lambda_c,\
                                                         self.lambda_h: lambda_h})
                 gen_data[(iteration*batch_size):((iteration+1)*batch_size),:,:,:] = (np.minimum(np.maximum(gen_A,0),1)*(2**16-1)).astype(np.uint16)
-                
+
                 print("\rGenerator A: {}/{} ({:.1f}%)".format(iteration+1, num_iterations, iteration*100/(num_iterations-1)),end="   ")
-        
-        group = f_save.create_group('A')
-        group.create_dataset(name='data', data=gen_data,dtype=np.uint16)
-        
-        f_save.close()
-        f.close()
+
+            group = f_save.create_group('A')
+            group.create_dataset(name='data', data=gen_data,dtype=np.uint16)
+
+            f_save.close()
+            f.close()
         
         return None
     
-    def generator_B(self,batch_size=32,lambda_c=0.,lambda_h=0.):
+    def generator_B(self,batch_size=32,lambda_c=0.,lambda_h=0.,checkpoint = 'latest'):
+
+        self.log_dir = os.path.join('/das/work/p18/p18203/Code/UDCT/logs', self.log_name)
+
         f              = h5py.File(self.data_file,"r")
         f_save         = h5py.File("./Models/" + self.mod_name + '/' + self.mod_name + '_gen_B.h5',"w")
         
@@ -569,11 +631,12 @@ class Model:
                 
         gen_data       = np.zeros((f['A/data'].shape[0],f['A/data'].shape[1],f['A/data'].shape[2],f['B/data'].shape[3]),dtype=np.uint16)
         
-        with tf.Session(graph=self.graph) as sess:
-            # initialize variables
-            self.init(sess)
-            
-            for iteration in range(num_iterations):    
+        # self.sess.run(self.init)
+        with self.graph.as_default():
+
+            self.load_weights(type=checkpoint)
+
+            for iteration in range(num_iterations):
                 images_a   = f['A/data'][(iteration*batch_size):((iteration+1)*batch_size),:,:,:]
                 if images_a.dtype=='uint8':
                     images_a=images_a/float(2**8-1)
@@ -582,18 +645,18 @@ class Model:
                 else:
                     raise ValueError('Dataset A is not int8 or int16')
 
-                gen_B = sess.run(self.fake_B,feed_dict={self.A: images_a,\
+                gen_B = self.sess.run(self.fake_B,feed_dict={self.A: images_a,\
                                                         self.lambda_c: lambda_c,\
                                                         self.lambda_h: lambda_h})
                 gen_data[(iteration*batch_size):((iteration+1)*batch_size),:,:,:] = (np.minimum(np.maximum(gen_B,0),1)*(2**16-1)).astype(np.uint16)
-                
+
                 print("\rGenerator B: {}/{} ({:.1f}%)".format(iteration+1, num_iterations, iteration*100/(num_iterations-1)),end="   ")
-        
-        group = f_save.create_group('B')
-        group.create_dataset(name='data', data=gen_data,dtype=np.uint16)
-        
-        f_save.close()
-        f.close()
+
+            group = f_save.create_group('B')
+            group.create_dataset(name='data', data=gen_data,dtype=np.uint16)
+
+            f_save.close()
+            f.close()
         
         return None
         
@@ -606,19 +669,43 @@ class Model:
         
         images_a   = f['A/data'][rand_a:(rand_a+32),:,:,:]/255.
         images_b   = f['B/data'][rand_b:(rand_b+32),:,:,:]/255.
-        with tf.Session(graph=self.graph) as sess:
-            # initialize variables
-            self.init(sess)
-                
-            l_rA,l_rB,l_fA,l_fB = \
-                sess.run([self.dis_real_A,self.dis_real_B,self.dis_fake_A,self.dis_fake_B,],\
-                         feed_dict={self.A: images_a,\
-                                    self.B: images_b,\
-                                    self.lambda_c: lambda_c,\
-                                    self.lambda_h: lambda_h})
+
+        self.sess.run(tf.global_variables_initializer())
+
+        l_rA,l_rB,l_fA,l_fB = \
+            self.sess.run([self.dis_real_A,self.dis_real_B,self.dis_fake_A,self.dis_fake_B,],\
+                     feed_dict={self.A: images_a,\
+                                self.B: images_b,\
+                                self.lambda_c: lambda_c,\
+                                self.lambda_h: lambda_h})
             
         f.close()
         return l_rA,l_rB,l_fA,l_fB
+
+
+    #loading weights and other stuff, function from Christian Baumgartner's discriminative learning toolbox
+    def load_weights(self, log_dir=None, type='latest', **kwargs):
+
+        if not log_dir:
+            log_dir = self.log_dir
+
+        if type == 'latest':
+            init_checkpoint_path = tf_utils.get_latest_model_checkpoint_path(log_dir, 'model.ckpt')
+        elif type == 'best_f1':
+            init_checkpoint_path = tf_utils.get_latest_model_checkpoint_path(log_dir, 'model_best_f1.ckpt')
+        # elif type == 'best_auc':
+        #     init_checkpoint_path = tf_utils.get_latest_model_checkpoint_path(log_dir, 'model_best_auc.ckpt')
+        # elif type == 'best_xent':
+        #     init_checkpoint_path = tf_utils.get_latest_model_checkpoint_path(log_dir, 'model_best_xent.ckpt')
+        # elif type == 'iter':
+        #     assert 'iteration' in kwargs, "argument 'iteration' must be provided for type='iter'"
+        #     iteration = kwargs['iteration']
+        #     init_checkpoint_path = os.path.join(log_dir, 'model.ckpt-%d' % iteration)
+        else:
+            raise ValueError('Argument type=%s is unknown. type can be latest/best_f1' % type)
+
+        print('Loaded checkpoint of type ' + str(type) + ' from log directory ' + str(self.log_dir))
+        self.saver.restore(self.sess, init_checkpoint_path)
 
     # Helper Functions
     def _make_tensorboard_summaries(self):
@@ -630,20 +717,34 @@ class Model:
 
 
             self.train_loss_dis_A_summary_ = tf.placeholder(tf.float32, shape=[], name='l_D_A')
-            loss_dis_A_summary = tf.summary.scalar('Loss of Discr. A', self.train_loss_dis_A_summary_)
+            loss_dis_A_summary = tf.summary.scalar('Loss_of_Discr_A', self.train_loss_dis_A_summary_)
 
             self.train_loss_dis_B_summary_ = tf.placeholder(tf.float32, shape=[], name='l_D_B')
-            loss_dis_B_summary = tf.summary.scalar('Loss of Discr. B', self.train_loss_dis_B_summary_)
+            loss_dis_B_summary = tf.summary.scalar('Loss_of_Discr_B', self.train_loss_dis_B_summary_)
 
             self.train_loss_gen_A_summary_ = tf.placeholder(tf.float32, shape=[], name='l_G_A')
-            loss_gen_A_summary = tf.summary.scalar('Loss of Gen. A', self.train_loss_gen_A_summary_)
+            loss_gen_A_summary = tf.summary.scalar('Loss_of_Gen_A', self.train_loss_gen_A_summary_)
 
             self.train_loss_gen_B_summary_ = tf.placeholder(tf.float32, shape=[], name='l_G_B')
-            loss_gen_B_summary = tf.summary.scalar('Loss of Gen. B', self.train_loss_gen_B_summary_)
+            loss_gen_B_summary = tf.summary.scalar('Loss_of_Gen_B', self.train_loss_gen_B_summary_)
 
             self.train_loss_dis = tf.summary.merge([loss_dis_A_summary, loss_dis_B_summary])
             self.train_loss_gen = tf.summary.merge([loss_gen_A_summary, loss_gen_B_summary])
 
+            ## Add some images to tensorboard for sneak peaks
+            self.img_A_sum_ = tf.placeholder(tf.float32, shape= [self.batch_size, 256, 256, 1], name = 'img_A_pl')
+            img_A_sum = tf.summary.image('Image_A', self.img_A_sum_, max_outputs=1)
+
+            self.img_A_fake_sum_ = tf.placeholder(tf.float32, shape= [self.batch_size, 256, 256, 1], name = 'img_A_fake_pl')
+            img_A_fake_sum = tf.summary.image('Image_A_fake', self.img_A_fake_sum_, max_outputs=1)
+
+            self.img_B_sum_ = tf.placeholder(tf.float32, shape= [self.batch_size, 256, 256, 3], name = 'img_B_pl')
+            img_B_sum = tf.summary.image('Image_B', self.img_B_sum_, max_outputs=1)
+
+            self.img_B_fake_sum_ = tf.placeholder(tf.float32, shape= [self.batch_size, 256, 256, 3], name = 'img_B_fake_pl')
+            img_B_fake_sum = tf.summary.image('Image_B_fake', self.img_B_fake_sum_, max_outputs=1)
+
+            self.img_sum = tf.summary.merge([img_A_sum, img_A_fake_sum, img_B_sum, img_B_fake_sum])
 
     def _setup_log_dir_and_continue_mode(self):
 

@@ -1,9 +1,9 @@
 from __future__ import division, print_function, unicode_literals
 
 import tensorflow as tf
-import PatchGAN34
-import PatchGAN70
-import PatchGAN142
+from Discriminator import PatchGAN34
+from Discriminator import PatchGAN70
+from Discriminator import PatchGAN142
 
 class MultiPatch:
     """
