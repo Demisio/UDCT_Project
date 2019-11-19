@@ -22,10 +22,10 @@ def get_file_list(data_path):
     # Create list of all png files
     file_list = []
     for element in os.listdir(data_path):
-        if '.tif' in element:
+        if '.tif' in element or '.png' in element:
             file_list.append(data_path + element)
     
-    print(element)
+    # print(element)
     # Compare sizes
     test = file_list[0]
     dimensions = cv2.imread(file_list[0],cv2.IMREAD_UNCHANGED).shape
@@ -82,8 +82,10 @@ def main(): #raw_path, syn_path, filename
     
     for idx,fname in enumerate(raw_files):
         if raw_flag: # This means, the images are gray scale
+            print('Images are grayscale')
             data_A[idx,:,:,0] = np.array(cv2.imread(fname,cv2.IMREAD_GRAYSCALE))
         else:
+            print('Images are not grayscale')
             data_A[idx,:,:,:] = np.flip(np.array(cv2.imread(fname,cv2.IMREAD_COLOR)),2)
         
     print('Genuine dataset: ', group.create_dataset(name='data', data=(data_A),dtype=dtype))

@@ -501,10 +501,15 @@ class Model:
 
 
             #get shapes of image tensors for placeholder
-            # self.shape_images_a = images_a.get_shape()
-            # self.shape_images_b = images_b.get_shape()
-            # self.shape_im_fake_A = im_fake_A.get_shape()
-            # self.shape_im_fake_B = im_fake_B.get_shape()
+            # tens_img_a = tf.convert_to_tensor(images_a)
+            # tens_img_b = tf.convert_to_tensor(images_b)
+            # tens_img_A_fake = tf.convert_to_tensor(im_fake_A)
+            # tens_img_B_fake = tf.convert_to_tensor(im_fake_B)
+            #
+            # self.shape_images_a = tens_img_a.get_shape()
+            # self.shape_images_b = tens_img_b.get_shape()
+            # self.shape_im_fake_A = tens_img_A_fake.get_shape()
+            # self.shape_im_fake_B = tens_img_B_fake.get_shape()
 
             train_img_sum = self.sess.run(self.img_sum,
                                           feed_dict={self.img_A_sum_: images_a,
@@ -576,12 +581,12 @@ class Model:
         f.close()
         return images_a, images_b, fake_A, fake_B, cyc_A, cyc_B
     
-    def generator_A(self,batch_size=32,lambda_c=0.,lambda_h=0., checkpoint='latest'):
+    def generator_A(self,batch_size=32,lambda_c=0.,lambda_h=0., checkpoint='latest', split = 'train'):
 
         self.log_dir = os.path.join('/das/work/p18/p18203/Code/UDCT/logs', self.log_name)
 
         f              = h5py.File(self.data_file,"r")
-        f_save         = h5py.File("./Models/" + self.mod_name + '/' + self.mod_name + '_gen_A.h5',"w")
+        f_save         = h5py.File("./Models/" + self.mod_name + '/' + self.mod_name + '_' + split +'_gen_A.h5',"w")
         
         # Find number of samples
         num_samples    = self.b_size
@@ -618,12 +623,12 @@ class Model:
         
         return None
     
-    def generator_B(self,batch_size=32,lambda_c=0.,lambda_h=0.,checkpoint = 'latest'):
+    def generator_B(self,batch_size=32,lambda_c=0.,lambda_h=0.,checkpoint = 'latest', split = 'train'):
 
         self.log_dir = os.path.join('/das/work/p18/p18203/Code/UDCT/logs', self.log_name)
 
         f              = h5py.File(self.data_file,"r")
-        f_save         = h5py.File("./Models/" + self.mod_name + '/' + self.mod_name + '_gen_B.h5',"w")
+        f_save         = h5py.File("./Models/" + self.mod_name + '/' + self.mod_name + '_' + split +'_gen_B.h5',"w")
         
         # Find number of samples
         num_samples    = self.a_size
@@ -732,16 +737,16 @@ class Model:
             self.train_loss_gen = tf.summary.merge([loss_gen_A_summary, loss_gen_B_summary])
 
             ## Add some images to tensorboard for sneak peaks
-            self.img_A_sum_ = tf.placeholder(tf.float32, shape= [self.batch_size, 256, 256, 1], name = 'img_A_pl')
+            self.img_A_sum_ = tf.placeholder(tf.float32, shape= [None, None, None, None], name = 'img_A_pl') #self.batch_size, 256, 256, 1
             img_A_sum = tf.summary.image('Image_A', self.img_A_sum_, max_outputs=1)
 
-            self.img_A_fake_sum_ = tf.placeholder(tf.float32, shape= [self.batch_size, 256, 256, 1], name = 'img_A_fake_pl')
+            self.img_A_fake_sum_ = tf.placeholder(tf.float32, shape= [None, None, None, None], name = 'img_A_fake_pl')
             img_A_fake_sum = tf.summary.image('Image_A_fake', self.img_A_fake_sum_, max_outputs=1)
 
-            self.img_B_sum_ = tf.placeholder(tf.float32, shape= [self.batch_size, 256, 256, 3], name = 'img_B_pl')
+            self.img_B_sum_ = tf.placeholder(tf.float32, shape= [None, None, None, None], name = 'img_B_pl')
             img_B_sum = tf.summary.image('Image_B', self.img_B_sum_, max_outputs=1)
 
-            self.img_B_fake_sum_ = tf.placeholder(tf.float32, shape= [self.batch_size, 256, 256, 3], name = 'img_B_fake_pl')
+            self.img_B_fake_sum_ = tf.placeholder(tf.float32, shape= [None, None, None, None], name = 'img_B_fake_pl')
             img_B_fake_sum = tf.summary.image('Image_B_fake', self.img_B_fake_sum_, max_outputs=1)
 
             self.img_sum = tf.summary.merge([img_A_sum, img_A_fake_sum, img_B_sum, img_B_fake_sum])

@@ -8,9 +8,9 @@ import logging
 change these paths and names according to the experiment
 '''
 
-filename = "Models/test_example_2/test_example_2_gen_B.h5"
-path = 'Images/test_example_2/'
-name = 'example'
+filename = "Models/Heart_noisy/Heart_noisy_test_gen_B.h5"
+path = 'Images/Heart_noisy/'
+name = 'heart_noisy_test'
 filetype = '.png'
 
 def h5_to_img(path, name, filetype):
@@ -34,7 +34,7 @@ def h5_to_img(path, name, filetype):
         file_name_list = []
         for x in range(0, dset.shape[0]):
             data_list.append(dset[x])
-            file_name_list.append(path + name + '_image_' + str(x) + filetype)
+            file_name_list.append(path + name + str(x) + filetype)
             # print(file_name_list[x])
             cv2.imwrite(file_name_list[x], data_list[x])
 

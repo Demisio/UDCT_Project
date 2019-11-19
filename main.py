@@ -19,8 +19,8 @@ if __name__ == "__main__":
     
     # List of ints
     sub_value_i = {}
-    sub_value_i['epoch']       = 200             # Number of epochs to be trained
-    sub_value_i['batch_size']  = 4               # Batch size for training
+    sub_value_i['epoch']       = 100             # Number of epochs to be trained
+    sub_value_i['batch_size']  = 2               # Batch size for training
     sub_value_i['buffer_size'] = 50              # Number of history elements used for Dis
     sub_value_i['save']        = 1               # If not 0, model is saved
     sub_value_i['gpu']         = 0               # Choose the GPU ID (if only CPU training, choose nonexistent number)
@@ -36,6 +36,7 @@ if __name__ == "__main__":
     sub_string['mode']         = 'training'      # 'train', 'gen_A', 'gen_B'
     sub_string['log_name']     = 'logs'          # log file directory
     sub_string['checkpoint']   = 'latest'        # which checkpoint should be loaded for generators at test time 'latest' / 'best_f1'
+    sub_string['split']        = 'train'         # which split do you use (labelling of created dataset only)
     
     # Create complete dictonary
     var_dict  = sub_string.copy()
@@ -127,10 +128,12 @@ if __name__ == "__main__":
     elif var_dict['mode'] == 'gen_A':
         model.generator_A(batch_size=var_dict['batch_size'],\
                           lambda_c=var_dict['lambda_c'],\
-                          lambda_h=var_dict['lambda_h'])
+                          lambda_h=var_dict['lambda_h'],
+                          split= var_dict['split'])
         
     elif var_dict['mode'] == 'gen_B':
         model.generator_B(batch_size=var_dict['batch_size'],\
                           lambda_c=var_dict['lambda_c'],\
                           lambda_h=var_dict['lambda_h'],
-                          checkpoint=var_dict['checkpoint'])
+                          checkpoint=var_dict['checkpoint'],
+                          split= var_dict['split'])
