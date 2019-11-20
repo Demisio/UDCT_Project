@@ -2,7 +2,7 @@
 
 #create png images, possibly add noise and potentially crop
 # params: Image path / Path for new images / Add noise? (noise / no_noise) / Crop (crop / no_crop)
-python add_noise_create_png.py ./Data/Heart/06_WK1_03_Fusion/ ./Data/Heart/06_WK1_03_Fusion_crop/ no_noise crop
+python add_noise_create_png.py ./Data/Heart/Segmented/06_WK1_03_Fusion/ ./Data/Heart/Segmented/06_WK1_03_Fusion_crop/ no_noise crop segment
 
 # Create the sample dataset
 cd ..

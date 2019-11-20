@@ -4,9 +4,11 @@ import os
 import cv2
 from create_h5_dataset import get_file_list
 import sys
-import io
+import imageio as io
 import matplotlib
 import matplotlib.pyplot as plt
+
+##Todo: scale noise to 0-255, no effect otherwise
 
 def noisy(noise_typ,image):
     if noise_typ == "gauss":
@@ -15,8 +17,8 @@ def noisy(noise_typ,image):
         sigma = 0.05
         gauss = np.random.normal(mean,sigma,(row,col,ch))
         gauss = gauss.reshape(row,col,ch)
-        gauss[gauss > 1.0] = 1
-        gauss[gauss < 0.0] = 0
+        # gauss[gauss > 1.0] = 1
+        # gauss[gauss < 0.0] = 0
         noisy = image + gauss
         return noisy
 
@@ -113,32 +115,37 @@ def modification(save_path, add_noise, crop, segment,
     print(data_A_crop[0].shape)
     print('')
 
-    plt.imshow(data_A_crop[0])
+    # plt.imshow(data_A_crop[0,:,:,0])
 
     if add_noise and not crop:
         print('Added Noise: Yes, Cropped: No, Converted to .png: Yes')
         for index in range (data_A.shape[0]):
             # noisy
             noisy_img = noisy('gauss', data_A[index])
-            cv2.imwrite(save_path + str(index) + '_noisy_' + '.png', noisy_img)
+            #crop to stay in range 0-255 due to introduction of gaussian noise
+            noisy_img = noisy_img.clip(0,255).astype(np.uint8)
+            io.imsave(save_path + str(index) + '_noisy.png', noisy_img)
 
     elif not add_noise and not crop:
         print('Added Noise: No, Cropped: No, Converted to .png: Yes')
         for index in range(data_A.shape[0]):
             # #normal
-            normal_img = data_A[index]
-            cv2.imwrite(save_path + str(index) + '_png_' + '.png', normal_img)
+            normal_img = data_A[index].astype(np.uint8)
+            io.imsave(save_path + str(index) + '_normal.png', normal_img)
 
     elif add_noise and crop:
         print('Added Noise: Yes, Cropped: Yes, Converted to .png: Yes')
         for index in range(data_A_crop.shape[0]):
-            noisy_img = noisy('gauss', data_A_crop[index])
+            noisy_crop_img = noisy('gauss', data_A_crop[index])
+            noisy_crop_img = noisy_crop_img.clip(0,255).astype(np.uint8)
+            # print(noisy_crop_img)
+            io.imsave(save_path + str(index) + '_noisy_crop.png', noisy_crop_img)
 
     elif not add_noise and crop:
         print('Added Noise: No, Cropped: Yes, Converted to .png: Yes')
         for index in range(data_A_crop.shape[0]):
-            crop_img = data_A_crop[index]
-
+            crop_img = data_A_crop[index].astype(np.uint8)
+            io.imsave(save_path + str(index) + '_crop.png', crop_img)
 
 if __name__ == '__main__':
 
