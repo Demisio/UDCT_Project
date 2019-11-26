@@ -1,15 +1,18 @@
-import h5py
 import numpy as np
 import os
 from sklearn import model_selection
 import pandas as pd
 
+split_path = './Heart/heart_ids.txt'
+df_ids = pd.read_csv('heart_ids.txt', header=None)
+df_labs = pd.read_csv('heart_gt_ids.txt', header=None)
 
-n_splits = 10
-kfold = model_selection.StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=20)
+n_splits = 5
+# kfold = model_selection.StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=20)
 
+kfold = model_selection.KFold(n_splits=n_splits, shuffle=True, random_state=20)
 i = 1
-for train, test in kfold.split(ids, labs):
+for train, test in kfold.split(df_ids, df_labs):
     train_ids = ids[train]
     test_ids = ids[test]
 

@@ -8,7 +8,7 @@ import imageio as io
 import matplotlib
 import matplotlib.pyplot as plt
 
-##Todo: scale noise to 0-255, no effect otherwise
+##Todo: scale noise to 0-255, no effect otherwise (not sure if really necessary, seems to work without noise)
 
 def noisy(noise_typ,image):
     if noise_typ == "gauss":
@@ -51,30 +51,6 @@ def noisy(noise_typ,image):
         gauss = gauss.reshape(row,col,ch)
         noisy = image + image * gauss
         return noisy
-
-# def sys_input():
-#     if len(sys.argv[1:]) != 3:
-#         print('This script recuires three arguments in order to work:')
-#         print(' ')
-#         print('Script aborted')
-#         return -1
-#
-#     data_path = sys.argv[1]
-#     save_path = sys.argv[2]
-#     add_noise = sys.argv[3]
-#     crop = sys.argv[4]
-#
-#     if add_noise == 'noise':
-#         add_noise = True
-#     elif add_noise == 'no_noise':
-#         add_noise = False
-#
-#     if crop == 'crop':
-#         crop = True
-#     elif crop == 'no_crop':
-#         crop = False
-#
-#     return data_path, save_path, add_noise, crop
 
 def modification(save_path, add_noise, crop, segment,
                  files, dimensions, flag):

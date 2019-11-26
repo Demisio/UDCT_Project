@@ -309,6 +309,10 @@ class Model:
         loss_dis_A_list = []
         loss_dis_B_list = []
 
+        # How many trainable params in model?
+        count_params = np.sum([np.prod(v.shape) for v in tf.trainable_variables()])
+        print('Number of trainable Parameters in model: ' + str(count_params))
+
         for epoch in range(1, n_epochs+1):
 
             print('')
@@ -556,7 +560,6 @@ class Model:
             if epoch % (n_epochs / 10) == 0 or epoch == n_epochs or epoch == 1:
                 checkpoint_file = os.path.join(self.log_dir, 'model.ckpt')
                 self.saver.save(self.sess, checkpoint_file, global_step=epoch)
-
 
         return [loss_gen_A_list,loss_gen_B_list,loss_dis_A_list, loss_dis_B_list]
 

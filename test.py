@@ -2,6 +2,10 @@ import numpy as np
 # import tensorflow as tf
 # from tensorflow.python.client import device_lib
 import os
+import re
+import sys
+import nibabel as nib
+import logging
 # os.environ["CUDA_VISIBLE_DEVICES"]= "0"
 #
 # print(tf.__version__)
@@ -10,24 +14,14 @@ import os
 # tf.test.gpu_device_name()
 #
 #
-# a = tf.constant(2.0)
-# b = tf.constant(3.0)
-#
-# c = tf.add(a,b)
-#
-# with tf.Session() as sess:
-#     print(sess.run(c))
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
 
-gauss = np.array((-1.0, 0.0, 0.5, 1.5)).reshape(2,2)
-print(gauss)
-# for element in np.nditer(gauss):
-# with np.nditer(gauss, op_flags=['readwrite']) as it:
-#     for element in it:
-#         if element[...] >= 1.0:
-#             element[...] = 1.0
-#         elif element[...] < 0.0:
-#             element[...] = 0.0
-
-gauss[gauss > 1.0] = 1
-gauss[gauss < 0.0] = 0
-print(gauss)
+# path = './Data/Heart/3D/Segmented/' + '06_WK1_03_Segm_3D' + '.nii.gz'
+# img = nib.load(path)
+# data = img.get_fdata()
+#
+# print(img.shape)
+# print(type(img))
+#
+# print(data.shape)
+# print(type(data))
