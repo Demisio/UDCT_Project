@@ -1,6 +1,7 @@
 ##
 # Script to change (.tif) image slices into 3D volumes in Nifti format. Are nicer to work with, easy numpy compatibility
 # preservation of slice order etc.
+# see main method to change paths and whether you work with segmentations or not, works with different datasets, not just one
 ##
 
 import numpy as np
@@ -9,9 +10,12 @@ import re
 from create_h5_dataset import get_file_list
 import cv2
 import sys
+import os
+import logging
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
 
-def read_save_files(dimensions, file_list, segment):
+def read_save_files(dimensions, file_list, file_name, segment):
     """
     Function takes dimensions and file_list as input (obtained from other helper function) and saves all images
     in a certain folder into a 3D volume image
@@ -50,27 +54,34 @@ def read_save_files(dimensions, file_list, segment):
     nib.save(nib_img, save_path + file_name + '.nii.gz')
     print('INFO:   Saved 3D image into: ' + save_path + ' as: ' + file_name)
 
+
 if __name__ == '__main__':
 
-    #paths and helper functions
 
-    # im_path = './Data/Heart/Raw/06_WK1_03_Cropabs_full/'
-    # save_path ='./Data/Heart/3D/Raw/'
-    # file_name = '06_WK1_03_Raw_3D'
+    ## Raw images
+    segment = False
+    data_path = './Data/Heart/Raw/'
+    save_path = './Data/Heart/3D/Raw/'
 
-    im_path = './Data/Heart/Segmented/06_WK1_03_Fusion_full/'
-    save_path = './Data/Heart/3D/Segmented/'
-    file_name = '06_WK1_03_Segm_3D'
+    ## Segmented images
+    # segment = True
+    # data_path = './Data/Heart/Segmented/'
+    # save_path = './Data/Heart/3D/Segmented/'
 
-    file_list,dimensions,flag = get_file_list(im_path)
+    files = os.listdir(data_path)
+    files.remove('old')
 
-    ## user inputs either a 0 or a 1 after the filename
-    ## if 0 is input --> no segmentation --> no changing of values
-    ## if 1 is input --> change of values: 1 --> 0 / 2 --> 120 / 3 --> 255 to get good contrast in grayscale image
+    filepaths = []
+    filenames = []
 
-    inpt = sys.argv[1]
-    segment = bool(int(inpt))
+    for el in files:
+        filepaths.append(data_path + el + '/')
+        filenames.append(el)
 
-    ##actually do stuff
-    im_list = read_save_files(dimensions, file_list, segment)
+    assert len(filepaths) == len(filenames)
 
+    for idx in range(len(filepaths)):
+        im_path = filepaths[idx]
+        file_name = filenames[idx]
+        file_list, dimensions, flag = get_file_list(im_path)
+        im_list = read_save_files(dimensions, file_list, file_name, segment)

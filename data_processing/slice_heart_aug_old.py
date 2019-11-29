@@ -1,9 +1,8 @@
 import numpy as np
 import cv2
-
 import imageio as io
 
-## cannot import from parent module in python, work around from:  https://stackoverflow.com/a/11158224
+# cannot import from parent module in python, work around from:  https://stackoverflow.com/a/11158224
 import os,sys,inspect
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
@@ -11,7 +10,7 @@ sys.path.insert(0,parentdir)
 
 from create_h5_dataset import get_file_list
 
-np.random.seed(42)
+# old functions used for images, now everything is done in numpy directly
 
 def rotateImage(image, angle):
     ## Taken from:   https://stackoverflow.com/a/9042907
@@ -88,7 +87,6 @@ def modifications(files, dimensions, flag, save_path,
     num_aug_samples = len(aug_list)
 
     print('Increased number of pictures from initially: ' + str(num_samples) + ' to now: ' + str(num_aug_samples))
-
 
 if __name__ == '__main__':
     data_path = "./Train_Images_Heart/"
