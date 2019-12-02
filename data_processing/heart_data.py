@@ -3,15 +3,22 @@ import numpy as np
 import os
 from sklearn import model_selection
 import h5py
+import sys
 from data_processing.batch_provider import BatchProvider_
+
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+sys.path.insert(0,parentdir)
+
+from create_h5_dataset import get_file_list
 
 class heart_data():
 
-    def __init__(self, path):
+    def __init__(self, path, fold):
 
         ## Change fold according to needs
-        fold = 1
-
+        fold = fold
+        split_path = './train_test_split/splits'
         data = h5py.File(path, 'r')
 
         self.data = data
@@ -23,41 +30,34 @@ class heart_data():
         self.b_size = int(np.array(data['B/num_samples']))      # Number of samples in B
         self.aug_factor = int(np.array(data['A/aug_factor']))   # how many times were augmentations performed? used for indexing
 
+        self.imshape = np.shape(data['A/data_1'][0,:,:,:])      # Shape of a single image in the array
+        self.aug_nr_images = np.shape(data['A/data_1'][:,0,0,0])[0]
+        self.nr_images = self.aug_nr_images / self.aug_factor
+
         # the following are HDF5 datasets, not numpy arrays
         image_grp = data['images']
         labels = data['labels']
         feat_grp = data['features']
 
 
-        train_filename = os.path.join(exp_config.split_path, exp_config.label_name, 'train_fold_{}.txt'.format(fold))
-        entire_ids = [int(line.split('\n')[0]) for line in open(train_filename)]
-        unsort_entire_indices, unsort_train_img_indices = self.get_indices_from_ids(entire_ids, array_img_ids)
-        entire_indices = np.sort(unsort_entire_indices)
-        train_img_indices = np.sort(unsort_train_img_indices)
+        train_filename = os.path.join(split_path, 'train_fold_{}.txt'.format(fold))
+        total_ids_list = [int(line.split('\n')[0]) for line in open(train_filename)]
+        total_ids = np.sort(np.array(total_ids_list))
 
         #create the split for TRAINING & VALIDATION with the indices, set 11% to test size, stratify & shuffle the split
         # ... notation to get everything in these dimensions, e.g. [1,:,:] for 3D array could be [1, ...]
-        train_indices, val_indices = model_selection.train_test_split(entire_indices,
-                                                                      test_size=0.11,
-                                                                      random_state=5,
-                                                                      shuffle=True,
-                                                                      stratify=labels[exp_config.label_name][entire_indices, ...])
+        train_ids, val_ids = model_selection.train_test_split(total_ids,
+                                                              test_size=0.2,
+                                                              random_state=42,
+                                                              shuffle=True)
 
         #also get indices for the TEST data.
-        test_filename = os.path.join(exp_config.split_path, exp_config.label_name, 'test_fold_{}.txt'.format(exp_config.cv_fold))
-        test_ids = [int(line.split('\n')[0]) for line in open(test_filename)]
-        test_indices, test_img_indices = self.get_indices_from_ids(test_ids, array_img_ids)
+        test_filename = os.path.join(split_path, 'test_fold_{}.txt'.format(fold))
+        test_ids_list = [int(line.split('\n')[0]) for line in open(test_filename)]
+        test_ids = np.sort(np.array(test_ids_list))
 
         # Create the batch providers
-        self.train = BatchProvider_()
-        self.validation = BatchProvider_()
-        self.test = BatchProvider_()
+        self.train = BatchProvider_(self.data, train_ids, self.aug_factor, self.nr_images, self.imshape)
+        self.validation = BatchProvider_(self.data, val_ids, self.aug_factor, self.nr_images, self.imshape)
+        self.test = BatchProvider_(self.data, test_ids, self.aug_factor, self.nr_images, self.imshape)
 
-
-if __name__ == '__main__':
-    from classifier.experiments import tavi_class as config
-    data = tavi_voi_data(config)
-    data.train
-    data.validation.iterate_batches(32)
-    data.test.iterate_batches(32)
-    i = 10

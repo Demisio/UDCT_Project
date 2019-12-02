@@ -25,6 +25,7 @@ if __name__ == "__main__":
     sub_value_i['save']        = 1               # If not 0, model is saved
     sub_value_i['gpu']         = 0               # Choose the GPU ID (if only CPU training, choose nonexistent number)
     sub_value_i['verbose']     = 0               # If not 0, some network information is being plotted
+    sub_value_i['fold']        = 1               # Which fold is in use?
     
     # List of strings
     sub_string = {}
@@ -37,7 +38,7 @@ if __name__ == "__main__":
     sub_string['log_name']     = 'logs'          # log file directory
     sub_string['checkpoint']   = 'latest'        # which checkpoint should be loaded for generators at test time 'latest' / 'best_f1'
     sub_string['split']        = 'train'         # which split do you use (labelling of created dataset only)
-    
+
     # Create complete dictonary
     var_dict  = sub_string.copy()
     var_dict.update(sub_value_i)

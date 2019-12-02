@@ -8,6 +8,10 @@ import nibabel as nib
 import logging
 import scipy
 import imageio as io
+import h5py
+import cv2
+from scipy.misc import imshow
+from scipy.misc import toimage
 #######################################################################################################################
 # os.environ["CUDA_VISIBLE_DEVICES"]= "0"
 #
@@ -56,19 +60,41 @@ import imageio as io
 
 #######################################################################################################################
 
-split_path = './Heart/heart_ids.txt'
-data_path = './Data/Heart/3D/Raw/'
-regex = re.compile(r'\d+')
-
-ind_list = []
-for el in os.listdir(data_path):
-    reg_list = regex.findall(el)
-    
-    ind_list.append(int(reg_list[-1]))
-
-labels = np.array(sorted(ind_list, reverse=True))
-print(labels)
+# split_path = './Heart/heart_ids.txt'
+# data_path = './Data/Heart/3D/Raw/'
+# regex = re.compile(r'\d+')
+#
+# ind_list = []
+# for el in os.listdir(data_path):
+#     reg_list = regex.findall(el)
+#
+#     ind_list.append(int(reg_list[-1]))
+#
+# labels = np.array(sorted(ind_list, reverse=True))
+# print(labels)
 # ind = np.arange(1,12)
 # labels = np.array([3,3,3,3,2,2,2,2,1,1,1])
 # print(ind)
 # print(labels)
+
+path = './data_processing/aug_heart_data.h5'
+data = h5py.File(path, 'r')
+
+aug_factor = int(np.array(data['A/aug_factor']))
+imshape = np.shape(data['A/data_1'][:,0,0,0])[0]
+print(imshape)
+nr_img = imshape / aug_factor
+print(nr_img)
+
+img_a = np.array(data['A/data_1'][0,:,:,0])
+img_b = np.array(data['B/data_1'][0,:,:,0])
+
+toimage(img_a).show()
+toimage(img_b).show()
+# batch_indices = np.random.choice(np.arange(1,4), size=3, replace=False)
+# print(batch_indices)
+# print(int(batch_indices.shape[0]))
+# for idx in batch_indices:
+#     print('index: ' + str(idx))
+#     print(data['A' + '/data_' + str(idx)][0,0,0,:])
+
