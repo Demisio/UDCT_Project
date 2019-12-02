@@ -49,17 +49,20 @@ def rotate_90_flip(arr, dimensions, rotate=True, flip=True):
 
     return aug_array, aug_dimensions
 
-def crop(arr, dimensions, crop_size, nr_crops):
+def crop(arr, dimensions, syn_arr, syn_dim, crop_size, nr_crops):
     """
     crops an input array to the desired size (only squares currently)
-    :param arr:
-    :param dimensions:
-    :param crop_size:
-    :param nr_crops:
-    :return:
+    :param arr: raw / real images
+    :param dimensions: dimensions of raw images pre-cropping
+    :param syn_arr: synthetic images / GT images
+    :param syn_dim: dimensions of synth. images pre-cropping
+    :param crop_size: what's the desired crop size (square crop)
+    :param nr_crops: how many crops from 1 image?
+    :return: crop_arr, crop_dim, syn_crop, syn_crop_dim: crops and dimensions
     """
 
     crop_arr = np.zeros(shape=[nr_crops*dimensions[0], crop_size, crop_size, dimensions[3]], dtype=np.uint8)
+    syn_crop = np.zeros(shape=[nr_crops*syn_dim[0], crop_size, crop_size, syn_dim[3]], dtype=np.uint8)
 
     for ind in range(dimensions[0]):
         new_ind = nr_crops*ind
@@ -70,12 +73,14 @@ def crop(arr, dimensions, crop_size, nr_crops):
             stop_x = start_x + crop_size
             stop_y = start_y + crop_size
             crop_arr[new_ind + i,:,:,:] = arr[ind, start_x:stop_x, start_y:stop_y, :]
+            syn_crop[new_ind + i,:,:,:] = syn_arr[ind, start_x:stop_x, start_y:stop_y, :]
 
     crop_dim = crop_arr.shape
+    syn_crop_dim = syn_crop.shape
 
     logging.info('New dimensions of array, after cropping: {}'.format(crop_dim))
 
-    return crop_arr, crop_dim
+    return crop_arr, crop_dim, syn_crop, syn_crop_dim
 
 def create_hdf5(file , real_file, syn_file, real_dim, syn_dim, group_a, group_b, iteration, aug_factor):
 
@@ -180,9 +185,8 @@ if __name__ == '__main__':
         raw_dimensions = raw_data.shape
         logging.info('Data dimensions: {}'.format(raw_dimensions))
 
-        ##Augmentations
+        ##Augmentations (cropping at same time, below)
         raw_aug_array, raw_aug_dim = rotate_90_flip(raw_data,raw_dimensions, rotate=rotate, flip=flip)
-        raw_crop_array, raw_crop_dim = crop(raw_aug_array, raw_aug_dim, 240, 4)
 
         ## synthetic files / ground truth
         syn_im_path = sort_syn_paths[idx]
@@ -195,7 +199,9 @@ if __name__ == '__main__':
 
         ##Augmentations
         syn_aug_array, syn_aug_dim = rotate_90_flip(syn_data, syn_dimensions, rotate=rotate, flip=flip)
-        syn_crop_array, syn_crop_dim = crop(syn_aug_array, syn_aug_dim, 240, 4)
+
+        ## cropping for both at the same time to get same areas
+        raw_crop_array, raw_crop_dim, syn_crop_array, syn_crop_dim = crop(raw_aug_array, raw_aug_dim, syn_aug_array, syn_aug_dim, 240, 4)
 
         #get augmentation factor for later indexing
         aug_factor = int(raw_crop_dim[0] / raw_dimensions[0])

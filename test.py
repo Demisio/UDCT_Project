@@ -86,8 +86,8 @@ print(imshape)
 nr_img = imshape / aug_factor
 print(nr_img)
 
-img_a = np.array(data['A/data_1'][0,:,:,0])
-img_b = np.array(data['B/data_1'][0,:,:,0])
+img_a = np.array(data['A/data_7'][14719,:,:,0])
+img_b = np.array(data['B/data_7'][14719,:,:,0])
 
 toimage(img_a).show()
 toimage(img_b).show()
