@@ -80,17 +80,44 @@ from scipy.misc import toimage
 path = './data_processing/aug_heart_data.h5'
 data = h5py.File(path, 'r')
 
-aug_factor = int(np.array(data['A/aug_factor']))
-imshape = np.shape(data['A/data_1'][:,0,0,0])[0]
-print(imshape)
-nr_img = imshape / aug_factor
-print(nr_img)
+# aug_factor = int(np.array(data['A/aug_factor']))
+# imshape = np.shape(data['A/data_1'][:,0,0,0])[0]
+# print(imshape)
+#
+# imsize = np.shape(data['A/data_1'][0,:,0,0])[0]
+# print(imsize)
+# a_chan = int(np.array(data['A/num_channel']))
+# b_chan = int(np.array(data['B/num_channel']))
+# print(a_chan)
+# print(b_chan)
+# a_size = int(np.array(data['A/num_samples']))
+# b_size = int(np.array(data['B/num_samples']))
+# print(a_size)
+# print(b_size)
+#
+# aug_factor = int(np.array(data['A/aug_factor']))
+#
+# imsize = np.shape(data['A/data_1'][0, :, 0, 0])[0]
+# aug_nr_images = np.shape(data['A/data_1'][:,0,0,0])[0]
+# nr_images = aug_nr_images / aug_factor
+# imshape = np.shape(data['A/data_1'][0,:,:,:])
+#
+# print(aug_factor)
+# print(aug_nr_images)
+# print(nr_images)
+# print(imshape)
 
-img_a = np.array(data['A/data_7'][14719,:,:,0])
-img_b = np.array(data['B/data_7'][14719,:,:,0])
+
+# nr_img = imshape / aug_factor
+# print(nr_img)
+#
+img_a = np.array(data['A/data_7'][13245,:,:,0])
+img_b = np.array(data['B/data_7'][13245,:,:,0])
 
 toimage(img_a).show()
 toimage(img_b).show()
+
+
 # batch_indices = np.random.choice(np.arange(1,4), size=3, replace=False)
 # print(batch_indices)
 # print(int(batch_indices.shape[0]))

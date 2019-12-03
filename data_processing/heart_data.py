@@ -3,14 +3,8 @@ import numpy as np
 import os
 from sklearn import model_selection
 import h5py
-import sys
-from data_processing.batch_provider import BatchProvider_
+from data_processing.batch_provider import BatchProvider_Heart
 
-currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-sys.path.insert(0,parentdir)
-
-from create_h5_dataset import get_file_list
 
 class heart_data():
 
@@ -25,7 +19,7 @@ class heart_data():
 
         self.a_chan = int(np.array(data['A/num_channel']))      # Number channels in A
         self.b_chan = int(np.array(data['B/num_channel']))      # Number channels in B
-        self.imsize = int(np.shape(data['A/data'][0,:,0,0])[0]) # Image size (squared)
+        self.imsize = np.shape(data['A/data_1'][0, :, 0, 0])[0] # Image size (squared)
         self.a_size = int(np.array(data['A/num_samples']))      # Number of samples in A
         self.b_size = int(np.array(data['B/num_samples']))      # Number of samples in B
         self.aug_factor = int(np.array(data['A/aug_factor']))   # how many times were augmentations performed? used for indexing
@@ -34,10 +28,6 @@ class heart_data():
         self.aug_nr_images = np.shape(data['A/data_1'][:,0,0,0])[0]
         self.nr_images = self.aug_nr_images / self.aug_factor
 
-        # the following are HDF5 datasets, not numpy arrays
-        image_grp = data['images']
-        labels = data['labels']
-        feat_grp = data['features']
 
 
         train_filename = os.path.join(split_path, 'train_fold_{}.txt'.format(fold))
@@ -57,7 +47,7 @@ class heart_data():
         test_ids = np.sort(np.array(test_ids_list))
 
         # Create the batch providers
-        self.train = BatchProvider_(self.data, train_ids, self.aug_factor, self.nr_images, self.imshape)
-        self.validation = BatchProvider_(self.data, val_ids, self.aug_factor, self.nr_images, self.imshape)
-        self.test = BatchProvider_(self.data, test_ids, self.aug_factor, self.nr_images, self.imshape)
+        self.train = BatchProvider_Heart(self.data, train_ids, self.aug_factor, self.nr_images, self.imshape)
+        self.validation = BatchProvider_Heart(self.data, val_ids, self.aug_factor, self.nr_images, self.imshape)
+        self.test = BatchProvider_Heart(self.data, test_ids, self.aug_factor, self.nr_images, self.imshape)
 

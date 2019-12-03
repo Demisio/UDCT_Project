@@ -19,7 +19,7 @@ if __name__ == "__main__":
     
     # List of ints
     sub_value_i = {}
-    sub_value_i['epoch']       = 100             # Number of epochs to be trained
+    sub_value_i['epoch']       = 200             # Number of epochs to be trained
     sub_value_i['batch_size']  = 2               # Batch size for training
     sub_value_i['buffer_size'] = 50              # Number of history elements used for Dis
     sub_value_i['save']        = 1               # If not 0, model is saved
@@ -98,7 +98,8 @@ if __name__ == "__main__":
         patchgan=var_dict['PatchGAN'],\
         verbose=(var_dict['verbose']!=0),\
         gen_only=gen_only,
-        log_name=var_dict['log_name'])
+        log_name=var_dict['log_name'],
+        fold=var_dict['fold'])
     
     # Plot parameter properties, if applicable
     if var_dict['verbose']:

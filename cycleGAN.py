@@ -22,7 +22,7 @@ from Utilities import Utilities
 import cv2
 
 from tfwrapper import utils as tf_utils
-
+from data_processing import heart_data, batch_provider
 class Model:
     """
     ToDo
@@ -49,7 +49,8 @@ class Model:
                  patchgan='Patch70',\
                  verbose=False,\
                  gen_only=False,
-                 log_name='filler'):
+                 log_name='filler',
+                 fold=1):
         """
         Create a Model (init). It will check, if a model with such a name has already been saved. If so, the model is being 
         loaded. Otherwise, a new model with this name will be created. It will only be saved, if the save function is being 
@@ -66,22 +67,32 @@ class Model:
         self.mod_name            = mod_name                               # Model name (see above)
         
         self.data_file           = data_file                              # hdf5 data file
-        
-        f = h5py.File(self.data_file,"r")
-        self.a_chan              = int(np.array(f['A/num_channel']))      # Number channels in A
-        self.b_chan              = int(np.array(f['B/num_channel']))      # Number channels in B
-        self.imsize              = int(np.shape(f['A/data'][0,:,0,0])[0]) # Image size (squared)
-        self.a_size              = int(np.array(f['A/num_samples']))      # Number of samples in A
-        self.b_size              = int(np.array(f['B/num_samples']))      # Number of samples in B
-        f.close()
-                
+
+        self.fold                = fold
+
+        ## experiment configuration, non-automatic so far
+        self.data = heart_data.heart_data(self.data_file, self.fold)
+
+        ## different sets
+        self.train_data = self.data.train
+        self.validation_data = self.data.validation
+        self.test_data = self.data.test
+
+        ## other model params
+        self.a_chan = self.data.a_chan
+        self.b_chan = self.data.b_chan
+        self.imsize = self.data.imsize
+        self.a_size = self.data.a_size
+        self.b_size = self.data.b_size
+
+
         # Reset all current saved tf stuff
         tf.reset_default_graph()
         
         self.architecture        = architecture
         self.lambda_h            = lambda_h
         self.lambda_c            = lambda_c
-        self.dis_noise_0         = dis_noise                              # ATTENTION: Name change from dis_noise to dis_noise_0
+        self.dis_noise_0         = dis_noise
         self.deconv              = deconv
         self.patchgan            = patchgan
         self.verbose             = verbose
@@ -93,10 +104,10 @@ class Model:
         # Image buffer
         self.buffer_size         = buffer_size
         self.temp_b_s            = 0.
-        self.buffer_real_a       = np.zeros([self.buffer_size,self.imsize,self.imsize,self.a_chan])
-        self.buffer_real_b       = np.zeros([self.buffer_size,self.imsize,self.imsize,self.b_chan])
-        self.buffer_fake_a       = np.zeros([self.buffer_size,self.imsize,self.imsize,self.a_chan])
-        self.buffer_fake_b       = np.zeros([self.buffer_size,self.imsize,self.imsize,self.b_chan])
+        self.buffer_real_a       = np.zeros([self.buffer_size, self.imsize, self.imsize, self.a_chan])
+        self.buffer_real_b       = np.zeros([self.buffer_size, self.imsize, self.imsize, self.b_chan])
+        self.buffer_fake_a       = np.zeros([self.buffer_size, self.imsize, self.imsize, self.a_chan])
+        self.buffer_fake_b       = np.zeros([self.buffer_size, self.imsize, self.imsize, self.b_chan])
         
         # # Create the model saver
         # with self.graph.as_default():
@@ -313,19 +324,17 @@ class Model:
         count_params = np.sum([np.prod(v.shape) for v in tf.trainable_variables()])
         print('Number of trainable Parameters in model: ' + str(count_params))
 
+        real_start_time = time.time()
+
         for epoch in range(1, n_epochs+1):
 
             print('')
             print('Epoch : %d' % (epoch))
             print('')
 
-            f = h5py.File(self.data_file, "r")
-
-            num_samples = min(self.a_size, self.b_size)
+            num_samples = self.data.nr_images
             num_iterations = num_samples // batch_size
 
-            a_order        = np.random.permutation(self.a_size)
-            b_order        = np.random.permutation(self.b_size)
 
             if self.verbose:
                 print('lambda_c: ' + str(lambda_c))
@@ -363,8 +372,8 @@ class Model:
                 rel_noise = 0.
 
             for iteration in range(num_iterations):
-                images_a   = f['A/data'][np.sort(a_order[(iteration*batch_size):((iteration+1)*batch_size)]),:,:,:]
-                images_b   = f['B/data'][np.sort(b_order[(iteration*batch_size):((iteration+1)*batch_size)]),:,:,:]
+                images_a, images_b   = self.train_data.next_batch(self.batch_size)
+
                 if images_a.dtype=='uint8':
                     images_a=images_a/float(2**8-1)
                 elif images_a.dtype=='uint16':
@@ -542,7 +551,6 @@ class Model:
             #     cv2.imwrite("./Models/Images/" + self.mod_name + '/' + self.mod_name + "_Epoch_" + str(epoch) + ".png",sneak_peak[:,:,[2,1,0]]*255)
             print("")
 
-            f.close()
 
             loss_gen_A = [np.mean(np.square(np.array(vec_ldfA))),np.mean(np.square(np.array(vec_ldfAh))),np.mean(np.array(lcA))]
             loss_gen_B = [np.mean(np.square(np.array(vec_ldfB))),np.mean(np.square(np.array(vec_ldfBh))),np.mean(np.array(lcB))]
@@ -560,6 +568,10 @@ class Model:
             if epoch % (n_epochs / 10) == 0 or epoch == n_epochs or epoch == 1:
                 checkpoint_file = os.path.join(self.log_dir, 'model.ckpt')
                 self.saver.save(self.sess, checkpoint_file, global_step=epoch)
+
+        final_time = time.time() - real_start_time
+        print('Training took a total of {} hours'.format(final_time / 3600.0))
+        print('Number of trainable Parameters in model: ' + str(count_params))
 
         return [loss_gen_A_list,loss_gen_B_list,loss_dis_A_list, loss_dis_B_list]
 
@@ -701,14 +713,6 @@ class Model:
             init_checkpoint_path = tf_utils.get_latest_model_checkpoint_path(log_dir, 'model.ckpt')
         elif type == 'best_f1':
             init_checkpoint_path = tf_utils.get_latest_model_checkpoint_path(log_dir, 'model_best_f1.ckpt')
-        # elif type == 'best_auc':
-        #     init_checkpoint_path = tf_utils.get_latest_model_checkpoint_path(log_dir, 'model_best_auc.ckpt')
-        # elif type == 'best_xent':
-        #     init_checkpoint_path = tf_utils.get_latest_model_checkpoint_path(log_dir, 'model_best_xent.ckpt')
-        # elif type == 'iter':
-        #     assert 'iteration' in kwargs, "argument 'iteration' must be provided for type='iter'"
-        #     iteration = kwargs['iteration']
-        #     init_checkpoint_path = os.path.join(log_dir, 'model.ckpt-%d' % iteration)
         else:
             raise ValueError('Argument type=%s is unknown. type can be latest/best_f1' % type)
 

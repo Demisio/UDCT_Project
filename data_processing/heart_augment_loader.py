@@ -82,34 +82,36 @@ def crop(arr, dimensions, syn_arr, syn_dim, crop_size, nr_crops):
 
     return crop_arr, crop_dim, syn_crop, syn_crop_dim
 
-def create_hdf5(file , real_file, syn_file, real_dim, syn_dim, group_a, group_b, iteration, aug_factor):
+def create_hdf5(file , raw_file, syn_file, raw_dim, syn_dim, group_a, group_b, iteration, aug_factor):
 
-    assert len(real_file.shape) == len(syn_file.shape)
-    assert real_dim == syn_dim
+    assert len(raw_file.shape) == len(syn_file.shape)
+    assert raw_dim == syn_dim
 
-    f = file
     it = iteration
 
-    real_num_samples = real_dim[0]
-    real_num_channel = real_dim[2]
+    raw_num_samples = raw_dim[0] / aug_factor
+    raw_num_channel = raw_dim[3]
     dtype = np.uint8
 
     if it == 1:
 
-        group_a.create_dataset(name='num_samples', data=real_num_samples)
-        group_a.create_dataset(name='num_channel', data=real_num_channel)
+        group_a.create_dataset(name='num_samples', data=raw_num_samples)
+        group_a.create_dataset(name='num_channel', data=raw_num_channel)
         group_a.create_dataset(name='aug_factor', data=aug_factor)
 
 
-    data_A = real_file
+    data_A = raw_file
     group_a.create_dataset(name='data_' + str(it), data=(data_A), dtype=dtype)
-    print('Created real dataset: data_' + str(it))
-    print('Shape of real dataset: {}'.format(data_A.shape))
+    print('Created raw dataset: data_' + str(it))
+    print('Shape of raw dataset: {}'.format(data_A.shape))
+    print('Number of raw, non-augmented samples: {}'.format(raw_num_samples))
+    print('Number of raw channels: {}'.format(raw_num_channel))
+    print('Augmentation Factor: {}'.format(aug_factor))
 
     ## Synthetic data
 
-    syn_num_samples = syn_dim[0]
-    syn_num_channel = syn_dim[2]
+    syn_num_samples = syn_dim[0] / aug_factor
+    syn_num_channel = syn_dim[3]
     dtype = np.uint8
 
     if it == 1:
@@ -122,7 +124,9 @@ def create_hdf5(file , real_file, syn_file, real_dim, syn_dim, group_a, group_b,
     group_b.create_dataset(name='data_' + str(it), data=(data_B), dtype=dtype)
     print('Created synth. dataset: data_' + str(it))
     print('Shape of synth dataset: {}'.format(data_B.shape))
-
+    print('Number of synth., non-augmented samples: {}'.format(syn_num_samples))
+    print('Number of synth. channels: {}'.format(syn_num_channel))
+    print('Augmentation Factor: {}'.format(aug_factor))
 
 
 if __name__ == '__main__':
@@ -208,6 +212,6 @@ if __name__ == '__main__':
         print('INFO:    Augmentation factor is: {}'.format(aug_factor))
 
         create_hdf5(f, raw_crop_array, syn_crop_array, raw_crop_dim, syn_crop_dim, group_a, group_b, it, aug_factor)
-
+        print('########### Next Iteration ###########')
     # Close the file
     f.close()
