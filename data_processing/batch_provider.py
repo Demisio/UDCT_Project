@@ -30,8 +30,12 @@ class BatchProvider_Heart():
         batch_a = np.zeros(shape=(batch_size, self.imshape[0], self.imshape[1], self.imshape[2]), dtype=np.uint8)
         batch_b = np.zeros(shape=(batch_size, self.imshape[0], self.imshape[1], self.imshape[2]), dtype=np.uint8)
 
-        #get the batch indices, here these correspond to different sample volumes
-        batch_indices = np.random.choice(self.sample_indices, size=batch_size, replace=False)
+        # get the batch indices, here these correspond to different sample volumes
+        # if batch size is larger than sample volumes, work with resampling
+        if batch_size <= self.sample_indices.shape[0]:
+            batch_indices = np.random.choice(self.sample_indices, size=batch_size, replace=False)
+        elif batch_size > self.sample_indices.shape[0]:
+            batch_indices = np.random.choice(self.sample_indices, size=batch_size, replace=True)
 
         #get image indices, these correspond to slices
         ### do arange to get img idx array from 0 to 459, then sample from this, then perform operations
@@ -52,3 +56,47 @@ class BatchProvider_Heart():
             i += 1
 
         return batch_a, batch_b
+
+
+    def iterate_batches(self, batch_size, shuffle=True):
+        """
+        Get batch iterator, can be used in a for loop, e.g. when iterating over epochs to sample batches in a dataset,
+        can be used in same way as "in range()" argument of a for loop
+        """
+
+        # shuffle img indices, then use iterator to provide sample batches
+        img_indices = np.arange(self.nr_img)
+        if shuffle:
+            np.random.shuffle(img_indices)
+        N = img_indices.shape[0]
+
+        # iterate over datasets and number of images, provide batches for a total number of N images
+        # with N = number of total non-augmented images
+        for batch in range(0, N, batch_size):
+            batch_a = np.zeros(shape=(batch_size, self.imshape[0], self.imshape[1], self.imshape[2]), dtype=np.uint8)
+            batch_b = np.zeros(shape=(batch_size, self.imshape[0], self.imshape[1], self.imshape[2]), dtype=np.uint8)
+
+            # get the batch indices, here these correspond to different sample volumes
+            if batch_size <= self.sample_indices.shape[0]:
+                batch_indices = np.random.choice(self.sample_indices, size=batch_size, replace=False)
+            elif batch_size > self.sample_indices.shape[0]:
+                batch_indices = np.random.choice(self.sample_indices, size=batch_size, replace=True)
+
+            # get image indices, these correspond to slices
+            ### do arange to get img idx array from 0 to 459, then sample from this, then perform operations
+
+            batch_img = img_indices[batch:batch + batch_size]
+            ## Access desired image as follows:
+            img_ind = self.aug_factor * batch_img + np.random.choice(self.aug_factor)
+
+            # HDF5 requires indices to be in increasing order
+            batch_indices = np.sort(batch_indices)
+            img_ind = np.sort(img_ind)
+
+            i = 0
+            for idx, img in zip(batch_indices, img_ind):
+                batch_a[i, :, :, :] = self.data['A' + '/data_' + str(idx)][img, :, :, :]
+                batch_b[i, :, :, :] = self.data['B' + '/data_' + str(idx)][img, :, :, :]
+                i += 1
+
+            yield batch_a, batch_b

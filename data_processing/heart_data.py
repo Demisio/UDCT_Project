@@ -11,6 +11,7 @@ class heart_data():
     def __init__(self, path, fold):
 
         ## Change fold according to needs
+        print('INFO:   Training on Fold {}'.format(fold))
         fold = fold
         split_path = './train_test_split/splits'
         data = h5py.File(path, 'r')

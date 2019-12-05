@@ -9,6 +9,9 @@ import time
 import os
 import logging
 import sys
+import cv2
+from sklearn.metrics import f1_score, roc_auc_score
+
 sys.path.append('./Discriminator')
 sys.path.append('./Generator')
 sys.path.append('./Utilities/')
@@ -19,10 +22,12 @@ from Discriminator import PatchGAN142
 from Discriminator import MultiPatch
 from Discriminator import HisDis
 from Utilities import Utilities
-import cv2
 
 from tfwrapper import utils as tf_utils
+from tfwrapper.losses import mean_dice
 from data_processing import heart_data, batch_provider
+
+
 class Model:
     """
     ToDo
@@ -118,7 +123,7 @@ class Model:
 
         with self.graph.as_default():
             self.saver = tf.train.Saver(max_to_keep=2, keep_checkpoint_every_n_hours=2)
-            #self.saver_f1 = tf.train.Saver(max_to_keep=2)
+            self.saver_best_dice = tf.train.Saver(max_to_keep=2)
 
         self.log_name = log_name
 
@@ -267,44 +272,23 @@ class Model:
             optimizer_dis = tf.train.AdamOptimizer(learning_rate=self.relative_lr*0.0002,beta1=0.5)
             self.opt_dis  = optimizer_dis.minimize(self.loss_dis_A + self.loss_dis_B,var_list=self.list_dis)
 
+            # Initialize Dice loss in TF
+            # self.B_mask = tf.placeholder(tf.int32,[None, None, None, self.b_chan],name="B_mask")
+            # self.fake_B_mask = tf.placeholder(tf.int32,[None, None, None, self.b_chan],name="fake_B_mask")
+            self.n_labels = tf.placeholder(tf.int32, shape=[], name='n_labels')
+
+            self.get_mean_dice = mean_dice(prediction=self.fake_B,
+                                           ground_truth=self.B,
+                                           nr_labels=self.n_labels,
+                                           sum_over_batches=True,
+                                           partial_dice=False)
+
+            # Session & variables
             self.sess = tf.Session(graph=self.graph)
             self.init = tf.global_variables_initializer()
 
-    # def save(self,sess):
-    #     """
-    #     Save the model parameter in a ckpt file. The filename is as
-    #     follows:
-    #     ./Models/<mod_name>.ckpt
-    #
-    #     INPUT: sess         - The current running session
-    #     """
-    #     self.saver.save(sess,"./Models/" + self.mod_name + '/' + self.mod_name + ".ckpt")
-    #
-    # def init(self,sess):
-    #     """
-    #     Init the model. If the model exists in a file, load the model. Otherwise, initalize the variables
-    #
-    #     INPUT: sess         - The current running session
-    #     """
-    #     if not os.path.isfile(\
-    #             "./Models/" + self.mod_name + '/' + self.mod_name + ".ckpt.meta"):
-    #         sess.run(tf.global_variables_initializer())
-    #         return 0
-    #     else:
-    #         if self.gen_only:
-    #             sess.run(tf.global_variables_initializer())
-    #         self.load(sess)
-    #         return 1
-    #
-    # def load(self,sess):
-    #     """
-    #     Load the model from the parameter file:
-    #     ./Models/<mod_name>.ckpt
-    #
-    #     INPUT: sess         - The current running session
-    #     """
-    #     self.saver.restore(sess, "./Models/" + self.mod_name + '/' + self.mod_name + ".ckpt")
-    
+
+
     def train(self, batch_size=32,lambda_c=0.,lambda_h=0.,n_epochs=0,save=True,syn_noise=0.,real_noise=0.):
 
         self.batch_size = batch_size
@@ -321,11 +305,16 @@ class Model:
         loss_dis_B_list = []
 
         # How many trainable params in model?
-        count_params = np.sum([np.prod(v.shape) for v in tf.trainable_variables()])
-        print('Number of trainable Parameters in model: ' + str(count_params))
+        # count_params = np.sum([np.prod(v.shape) for v in tf.trainable_variables()])
+        # np.sum([np.product([xi.value for xi in x.get_shape()]) for x in tf.all_variables()])
+        # print('Number of trainable Parameters in model: ' + self.sess.run(str(count_params)))
+        self.show_params()
 
         real_start_time = time.time()
 
+        # initialise dice_score
+        best_dice_score = 0
+        print('INFO:   Starting Training')
         for epoch in range(1, n_epochs+1):
 
             print('')
@@ -493,12 +482,39 @@ class Model:
                     cv2.imshow("",self.sneak_peak[:,:,[2,1,0]])
                     cv2.waitKey(1)
 
-                print("\rTrain: {}/{} ({:.1f}%)".format(iteration+1, num_iterations,(iteration) * 100 / (num_iterations-1)) + \
-                      "          Loss_dis_A={:.4f},   Loss_dis_B={:.4f}".format(np.mean(vec_l_dis_A),np.mean(vec_l_dis_B)) + \
-                      ",   Loss_gen_A={:.4f},   Loss_gen_B={:.4f}".format(np.mean(vec_l_gen_A),np.mean(vec_l_gen_B))\
-                          ,end="        ")
+                if iteration%20==0:
+                    print("\rTrain: {}/{} ({:.1f}%)".format(iteration+1, num_iterations,(iteration) * 100 / (num_iterations-1)) + \
+                          "          Loss_dis_A={:.4f},   Loss_dis_B={:.4f}".format(np.mean(vec_l_dis_A),np.mean(vec_l_dis_B)) + \
+                          ",   Loss_gen_A={:.4f},   Loss_gen_B={:.4f}".format(np.mean(vec_l_gen_A),np.mean(vec_l_gen_B))\
+                              ,end="        ")
 
+            # Validation / Evaluation
+            # TODO: checkpoints here
+            # if epoch % 5 == 0:
+            print('')
+            print('--- Evaluation of Training Data ---')
 
+            train_mean_dice = self.do_validation(self.train_data.iterate_batches)
+
+            print('Training Dice Score: {}'.format(train_mean_dice))
+            print('')
+            print('--- Evaluation of Validation Data ---')
+
+            val_mean_dice = self.do_validation(self.validation_data.iterate_batches)
+
+            print('Validation Dice Score: {}'.format(val_mean_dice))
+
+            if val_mean_dice >= best_dice_score:
+                best_dice_score = val_mean_dice
+                best_file = os.path.join(self.log_dir, 'model_best_dice.ckpt')
+                self.saver_best_dice.save(self.sess, best_file, global_step=epoch)
+                print('INFO:  Found new best Dice score on validation set! - %f -  Saving model_best_dice.ckpt' % val_mean_dice)
+
+            train_summary_dice = self.sess.run(self.train_summary,
+                                               feed_dict={self.train_mean_dice_summary_: train_mean_dice})
+
+            val_summary_dice = self.sess.run(self.val_summary,
+                                             feed_dict={self.val_mean_dice_summary_: val_mean_dice})
             # summary_str = self.sess.run(self.summary,
             #                             feed_dict = {self.rel_lr_sum: rel_lr})
             # self.summary_writer.add_summary(summary_str, epoch)
@@ -529,6 +545,13 @@ class Model:
                                                      self.img_A_fake_sum_: im_fake_A,
                                                      self.img_B_sum_: images_b,
                                                      self.img_B_fake_sum_: im_fake_B})
+
+            # Add Summaries to tensorboard
+            self.summary_writer.add_summary(train_summary_dice, epoch)
+            self.summary_writer.flush()
+
+            self.summary_writer.add_summary(val_summary_dice, epoch)
+            self.summary_writer.flush()
 
             self.summary_writer.add_summary(train_summary_dis, epoch)
             self.summary_writer.flush()
@@ -571,30 +594,12 @@ class Model:
 
         final_time = time.time() - real_start_time
         print('Training took a total of {} hours'.format(final_time / 3600.0))
-        print('Number of trainable Parameters in model: ' + str(count_params))
+        # print('Number of trainable Parameters in model: ' + self.sess.run(str(count_params)))
+        print('')
+        print('Best Dice Score on Validation set is: {}'.format(best_dice_score))
 
         return [loss_gen_A_list,loss_gen_B_list,loss_dis_A_list, loss_dis_B_list]
 
-    def predict(self,lambda_c=0.,lambda_h=0.):
-        f          = h5py.File(self.data_file,"r")
-        
-        rand_a     = np.random.randint(self.a_size-32)
-        rand_b     = np.random.randint(self.b_size-32)
-        
-        images_a   = f['A/data'][rand_a:(rand_a+32),:,:,:]/255.
-        images_b   = f['B/data'][rand_b:(rand_b+32),:,:,:]/255.
-
-        self.sess.run(tf.global_variables_initializer())
-
-        fake_A, fake_B, cyc_A, cyc_B = \
-            self.sess.run([self.fake_A,self.fake_B,self.cyc_A,self.cyc_B],\
-                     feed_dict={self.A: images_a,\
-                                self.B: images_b,\
-                                self.lambda_c: lambda_c,\
-                                self.lambda_h: lambda_h})
-
-        f.close()
-        return images_a, images_b, fake_A, fake_B, cyc_A, cyc_B
     
     def generator_A(self,batch_size=32,lambda_c=0.,lambda_h=0., checkpoint='latest', split = 'train'):
 
@@ -637,7 +642,8 @@ class Model:
             f.close()
         
         return None
-    
+
+
     def generator_B(self,batch_size=32,lambda_c=0.,lambda_h=0.,checkpoint = 'latest', split = 'train'):
 
         self.log_dir = os.path.join('/das/work/p18/p18203/Code/UDCT/logs', self.log_name)
@@ -679,29 +685,116 @@ class Model:
             f.close()
         
         return None
-        
-    
-    def get_loss(self,lambda_c=0.,lambda_h=0.):
-        f              = h5py.File(self.data_file,"r")
-        
-        rand_a     = np.random.randint(self.a_size-32)
-        rand_b     = np.random.randint(self.b_size-32)
-        
-        images_a   = f['A/data'][rand_a:(rand_a+32),:,:,:]/255.
-        images_b   = f['B/data'][rand_b:(rand_b+32),:,:,:]/255.
 
-        self.sess.run(tf.global_variables_initializer())
 
-        l_rA,l_rB,l_fA,l_fB = \
-            self.sess.run([self.dis_real_A,self.dis_real_B,self.dis_fake_A,self.dis_fake_B,],\
-                     feed_dict={self.A: images_a,\
-                                self.B: images_b,\
-                                self.lambda_c: lambda_c,\
-                                self.lambda_h: lambda_h})
-            
-        f.close()
-        return l_rA,l_rB,l_fA,l_fB
+    def predict_all(self,images_a, images_b):
+        """
+        Use this function to predict all image outputs, even cyclic return of same image
+        :param images_a:
+        :param images_b:
+        :return: original images, fake images, cycled images
+        """
+        feed_dict = {self.A: images_a, self.B: images_b}
+        im_fake_A, im_fake_B, cyc_A, cyc_B, = self.sess.run([self.fake_A, self.fake_B, self.cyc_A, self.cyc_B],
+                                                            feed_dict=feed_dict)
 
+        return images_a, images_b, im_fake_A, im_fake_B, cyc_A, cyc_B
+
+
+    def predict_seg(self, images_a, images_b, heart_data=False):
+        """
+        Only predict segmentation results
+        :param images_a:
+        :param images_b:
+        :return: f1_score for batch (= Dice score)
+        """
+        with self.graph.as_default():
+            # get fake image batch
+            images_b = images_b
+            im_fake_B = self.sess.run(self.fake_B, feed_dict={self.A: images_a})
+
+            im_fake_B = (np.minimum(np.maximum(im_fake_B,0),1)*(2**8-1)).astype(np.uint8)
+            print('Non Rounded B')
+            print(images_b[0,50:65,50:65,:])
+            print('Non Rounded Fake B')
+            print(im_fake_B[0,50:65,50:65,:])
+
+            # self.lambda_c: lambda_c,
+            # self.lambda_h: lambda_h}
+            # perform rounding since generated values are between 0 - 255 (roughly 0, 120, 255), might have some slight deviations there
+            # --> map it to values: 0 (Coll) / 1 (Cells) / 2 (Void)
+            # can't properly evaluate F1 score on raw images, left out here
+
+            if heart_data:
+                nr_labels = 3
+                rd_b = np.rint(images_b / 120)
+                rd_fk_b = np.rint(im_fake_B / 120)
+            else:
+                raise ValueError("Currently only heart_data is supported for validation")
+
+            print('Rounded B')
+            print(rd_b[0,50:65,50:65,:])
+            print('Rounded Fake B')
+            print(rd_fk_b[0,50:65,50:65,:])
+            # assert rd_a.shape[0] == rd_b.shape[0] == rd_fk_a.shape[0] == rd_fk_b.shape[0] == 2
+            # assert rd_a.shape[1] == rd_b.shape[1] == rd_fk_a.shape[1] == rd_fk_b.shape[1]
+            # assert rd_a.shape[2] == rd_b.shape[2] == rd_fk_a.shape[2] == rd_fk_b.shape[2]
+
+            # dim1 = rd_a.shape[1]
+            # dim2 = rd_a.shape[2]
+
+            # If Sklearn's f1 score is used, have to reshape arrays with: .reshape(dim1*dim2)
+            # left out A (raw) images since they are not relevant for prediction of F1 score
+            # for i in range(rd_b.shape[0]):
+            #     # im_a += list(rd_a[i,:,:,:])
+            #     im_b += list(rd_b[i, :, :, :])
+            #     # fake_im_a += list(rd_fk_a[i,:,:,:])
+            #     fake_im_b += list(rd_fk_b[i, :, :, :])
+
+            # f1_macro = f1_score(np.asarray(im_b),np.asarray(fake_im_b), average='macro')
+
+
+
+            f1_macro = self.sess.run([self.get_mean_dice], feed_dict={self.fake_B: rd_fk_b,
+                                                                      self.B: rd_b,
+                                                                      self.n_labels: nr_labels})
+
+        return f1_macro
+
+
+    def do_validation(self, iterator):
+        """
+        Provides various metrics of interest
+        :param iterator: iterator over batches
+        :return: average batch losses and other relevant metrics, e.g. F1 score
+        """
+        with self.graph.as_default():
+            dice_score_aggr = 0
+            num_batches = 0
+            print('Start num_batches: {}'.format(num_batches))
+
+            for batch in iterator(self.batch_size):
+                batch_a, batch_b = batch
+
+                assert batch_a.shape[0] == batch_b.shape[0]
+
+                if batch_a.shape[0] < self.batch_size:
+                    continue
+
+                # images_a, images_b, im_fake_A, im_fake_B, cyc_A, cyc_B = self.predict(batch_a, batch_b)
+                f1_macro = self.predict_seg(batch_a, batch_b, heart_data=True)
+
+                print('F1 macro: {}'.format(f1_macro))
+                # make sure only 1 element is in list so we can add it
+                assert len(f1_macro) == 1
+
+                dice_score_aggr += f1_macro[0]
+                num_batches += 1
+
+            # get the mean dice score for the dataset
+            mean_dice_score = dice_score_aggr / num_batches
+
+        return mean_dice_score
 
     #loading weights and other stuff, function from Christian Baumgartner's discriminative learning toolbox
     def load_weights(self, log_dir=None, type='latest', **kwargs):
@@ -711,23 +804,34 @@ class Model:
 
         if type == 'latest':
             init_checkpoint_path = tf_utils.get_latest_model_checkpoint_path(log_dir, 'model.ckpt')
-        elif type == 'best_f1':
-            init_checkpoint_path = tf_utils.get_latest_model_checkpoint_path(log_dir, 'model_best_f1.ckpt')
+        elif type == 'best_dice':
+            init_checkpoint_path = tf_utils.get_latest_model_checkpoint_path(log_dir, 'model_best_dice.ckpt')
         else:
-            raise ValueError('Argument type=%s is unknown. type can be latest/best_f1' % type)
+            raise ValueError('Argument type=%s is unknown. type can be latest/best_dice' % type)
 
         print('Loaded checkpoint of type ' + str(type) + ' from log directory ' + str(self.log_dir))
         self.saver.restore(self.sess, init_checkpoint_path)
 
+
     # Helper Functions
     def _make_tensorboard_summaries(self):
         with self.graph.as_default():
-            self.rel_lr_ = tf.placeholder(tf.float32, shape= [], name= 'rel_lr_')
-            self.rel_lr_sum = tf.summary.scalar('learning_rate', self.rel_lr_)
+            # self.rel_lr_ = tf.placeholder(tf.float32, shape= [], name= 'rel_lr_')
+            # self.rel_lr_sum = tf.summary.scalar('learning_rate', self.rel_lr_)
             # Build the summary Tensor based on the TF collection of Summaries.
-            self.summary = tf.summary.merge_all()
 
+            # Evaluation metrics
+            self.train_mean_dice_summary_ = tf.placeholder(tf.float32, shape=[], name='train_mean_dice')
+            train_mean_dice_summary = tf.summary.scalar('Mean_Dice_Training', self.train_mean_dice_summary_)
 
+            self.val_mean_dice_summary_ = tf.placeholder(tf.float32, shape=[], name='val_mean_dice')
+            val_mean_dice_summary = tf.summary.scalar('Mean_Dice_Validation', self.val_mean_dice_summary_)
+
+            # self.summary = tf.summary.merge_[train_mean_dice_summary, val_mean_dice_summary]
+            self.train_summary = tf.summary.merge([train_mean_dice_summary])
+            self.val_summary = tf.summary.merge([val_mean_dice_summary])
+
+            # Losses
             self.train_loss_dis_A_summary_ = tf.placeholder(tf.float32, shape=[], name='l_D_A')
             loss_dis_A_summary = tf.summary.scalar('Loss_of_Discr_A', self.train_loss_dis_A_summary_)
 
@@ -743,7 +847,7 @@ class Model:
             self.train_loss_dis = tf.summary.merge([loss_dis_A_summary, loss_dis_B_summary])
             self.train_loss_gen = tf.summary.merge([loss_gen_A_summary, loss_gen_B_summary])
 
-            ## Add some images to tensorboard for sneak peaks
+            # Images
             self.img_A_sum_ = tf.placeholder(tf.float32, shape= [None, None, None, None], name = 'img_A_pl') #self.batch_size, 256, 256, 1
             img_A_sum = tf.summary.image('Image_A', self.img_A_sum_, max_outputs=1)
 
@@ -757,6 +861,7 @@ class Model:
             img_B_fake_sum = tf.summary.image('Image_B_fake', self.img_B_fake_sum_, max_outputs=1)
 
             self.img_sum = tf.summary.merge([img_A_sum, img_A_fake_sum, img_B_sum, img_B_fake_sum])
+
 
     def _setup_log_dir_and_continue_mode(self):
 
@@ -789,5 +894,93 @@ class Model:
         # # Copy experiment config file to log_dir for future reference
         # shutil.copy(self.exp_config.__file__, self.log_dir)
 
+    def show_params(self):
+        with self.graph.as_default():
+            total = 0
+            for v in tf.trainable_variables():
+                dims = v.get_shape().as_list()
+                num = int(np.prod(dims))
+                total += num
+                print('  %s \t\t Num: %d \t\t Shape %s ' % (v.name, num, dims))
+            print('\nTotal number of params: %d' % total)
 
+
+    ######## Currently unused functions, left over from initial implementation ########
+
+    # def save(self,sess):
+    #     """
+    #     Save the model parameter in a ckpt file. The filename is as
+    #     follows:
+    #     ./Models/<mod_name>.ckpt
+    #
+    #     INPUT: sess         - The current running session
+    #     """
+    #     self.saver.save(sess,"./Models/" + self.mod_name + '/' + self.mod_name + ".ckpt")
+    #
+    # def init(self,sess):
+    #     """
+    #     Init the model. If the model exists in a file, load the model. Otherwise, initalize the variables
+    #
+    #     INPUT: sess         - The current running session
+    #     """
+    #     if not os.path.isfile(\
+    #             "./Models/" + self.mod_name + '/' + self.mod_name + ".ckpt.meta"):
+    #         sess.run(tf.global_variables_initializer())
+    #         return 0
+    #     else:
+    #         if self.gen_only:
+    #             sess.run(tf.global_variables_initializer())
+    #         self.load(sess)
+    #         return 1
+    #
+    # def load(self,sess):
+    #     """
+    #     Load the model from the parameter file:
+    #     ./Models/<mod_name>.ckpt
+    #
+    #     INPUT: sess         - The current running session
+    #     """
+    #     self.saver.restore(sess, "./Models/" + self.mod_name + '/' + self.mod_name + ".ckpt")
+
+    # def get_loss(self, lambda_c=0., lambda_h=0.):
+    #     f = h5py.File(self.data_file, "r")
+    #
+    #     rand_a = np.random.randint(self.a_size - 32)
+    #     rand_b = np.random.randint(self.b_size - 32)
+    #
+    #     images_a = f['A/data'][rand_a:(rand_a + 32), :, :, :] / 255.
+    #     images_b = f['B/data'][rand_b:(rand_b + 32), :, :, :] / 255.
+    #
+    #     self.sess.run(tf.global_variables_initializer())
+    #
+    #     l_rA, l_rB, l_fA, l_fB = \
+    #         self.sess.run([self.dis_real_A, self.dis_real_B, self.dis_fake_A, self.dis_fake_B, ], \
+    #                       feed_dict={self.A: images_a, \
+    #                                  self.B: images_b, \
+    #                                  self.lambda_c: lambda_c, \
+    #                                  self.lambda_h: lambda_h})
+    #
+    #     f.close()
+    #     return l_rA, l_rB, l_fA, l_fB
+    #
+    # def predict(self, lambda_c=0., lambda_h=0.):
+    #     f = h5py.File(self.data_file, "r")
+    #
+    #     rand_a = np.random.randint(self.a_size - 32)
+    #     rand_b = np.random.randint(self.b_size - 32)
+    #
+    #     images_a = f['A/data'][rand_a:(rand_a + 32), :, :, :] / 255.
+    #     images_b = f['B/data'][rand_b:(rand_b + 32), :, :, :] / 255.
+    #
+    #     self.sess.run(tf.global_variables_initializer())
+    #
+    #     fake_A, fake_B, cyc_A, cyc_B = \
+    #         self.sess.run([self.fake_A, self.fake_B, self.cyc_A, self.cyc_B], \
+    #                       feed_dict={self.A: images_a, \
+    #                                  self.B: images_b, \
+    #                                  self.lambda_c: lambda_c, \
+    #                                  self.lambda_h: lambda_h})
+    #
+    #     f.close()
+    #     return images_a, images_b, fake_A, fake_B, cyc_A, cyc_B
 

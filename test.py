@@ -12,6 +12,7 @@ import h5py
 import cv2
 from scipy.misc import imshow
 from scipy.misc import toimage
+from sklearn.metrics import f1_score, roc_auc_score
 #######################################################################################################################
 # os.environ["CUDA_VISIBLE_DEVICES"]= "0"
 #
@@ -77,9 +78,14 @@ from scipy.misc import toimage
 # print(ind)
 # print(labels)
 
-path = './data_processing/aug_heart_data.h5'
-data = h5py.File(path, 'r')
-
+# path = './data_processing/aug_heart_data.h5'
+# data = h5py.File(path, 'r')
+#
+# part_a = data['A/data_1'][0,20:40,20:40,0]
+# part_b = data['B/data_1'][0,20:40,20:40,0]
+#
+# print(part_a)
+# print(part_b)
 # aug_factor = int(np.array(data['A/aug_factor']))
 # imshape = np.shape(data['A/data_1'][:,0,0,0])[0]
 # print(imshape)
@@ -107,16 +113,43 @@ data = h5py.File(path, 'r')
 # print(nr_images)
 # print(imshape)
 
+# list1 = []
+# list2 = []
+#
+#
+a = np.array([120,255,120,0,0,255,120,0,0,120,120,255,255])
+noise = np.random.normal(0, 10, size=a.shape)
+b = a + noise
+b = np.clip(b, 0, 255)
+c = np.rint(b)
+print(a)
+print(b)
+print(c)
 
+# a = np.array([(0,1,2,1,3,4,5,2)])
+# # b = np.array([(0,1,0,1),(3,4,5,2)])
+# #
+# print(a.shape[1])
+# a = a.reshape(a.shape[0]*a.shape[1])
+# b = b.reshape(b.shape[0]*b.shape[1])
+#
+# list1 += list(a)
+# list2 += list(b)
+#
+# print(list1)
+# print(list2)
+#
+# score = f1_score(np.asarray(list1),np.asarray(list2),average=None)
+# print(score)
 # nr_img = imshape / aug_factor
 # print(nr_img)
 #
-img_a = np.array(data['A/data_7'][13245,:,:,0])
-img_b = np.array(data['B/data_7'][13245,:,:,0])
-
-toimage(img_a).show()
-toimage(img_b).show()
-
+# img_a = np.array(data['A/data_7'][13245,:,:,0])
+# img_b = np.array(data['B/data_7'][13245,:,:,0])
+#
+# toimage(img_a).show()
+# toimage(img_b).show()
+#
 
 # batch_indices = np.random.choice(np.arange(1,4), size=3, replace=False)
 # print(batch_indices)
@@ -124,4 +157,3 @@ toimage(img_b).show()
 # for idx in batch_indices:
 #     print('index: ' + str(idx))
 #     print(data['A' + '/data_' + str(idx)][0,0,0,:])
-
