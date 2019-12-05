@@ -2,7 +2,9 @@
 Models
 logs
 Images
-Data/Heart
+Data/Heart/Raw
+Data/Heart/Segmented
+Data/Heart/Test
 Data/C_Elegans
 
 
