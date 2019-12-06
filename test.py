@@ -13,6 +13,7 @@ import cv2
 from scipy.misc import imshow
 from scipy.misc import toimage
 from sklearn.metrics import f1_score, roc_auc_score
+from scipy.stats import pearsonr
 #######################################################################################################################
 # os.environ["CUDA_VISIBLE_DEVICES"]= "0"
 #
@@ -78,14 +79,14 @@ from sklearn.metrics import f1_score, roc_auc_score
 # print(ind)
 # print(labels)
 
-# path = './data_processing/aug_heart_data.h5'
-# data = h5py.File(path, 'r')
+path = './data_processing/aug_heart_data_noisy.h5'
+data = h5py.File(path, 'r')
 #
-# part_a = data['A/data_1'][0,20:40,20:40,0]
-# part_b = data['B/data_1'][0,20:40,20:40,0]
-#
-# print(part_a)
-# print(part_b)
+part_a = data['A/data_1'][0,20:40,20:40,0]
+part_b = data['B/data_1'][0,20:40,20:40,0]
+
+print(part_a)
+print(part_b)
 # aug_factor = int(np.array(data['A/aug_factor']))
 # imshape = np.shape(data['A/data_1'][:,0,0,0])[0]
 # print(imshape)
@@ -117,15 +118,27 @@ from sklearn.metrics import f1_score, roc_auc_score
 # list2 = []
 #
 #
-a = np.array([120,255,120,0,0,255,120,0,0,120,120,255,255])
-noise = np.random.normal(0, 10, size=a.shape)
-b = a + noise
-b = np.clip(b, 0, 255)
-c = np.rint(b)
-print(a)
-print(b)
-print(c)
+# a = np.array([120,255,120,0,0,255,120,0,0,120,120,255,255])
+# noise = np.random.normal(0, 10, size=a.shape)
+# b = a + noise
+# b = np.clip(b, 0, 255)
+# c = np.rint(b)
+# print(a)
+# print(b)
+# print(c)
 
+
+# a = np.asarray([(3,1)])
+# # b = [2,3]
+# c = np.asarray([(5,1)])
+# # print(b)
+# # b += a
+# # print(b)
+# #
+# print(a)
+# print(c)
+# corr, _ = pearsonr(a,c)
+# print(corr)
 # a = np.array([(0,1,2,1,3,4,5,2)])
 # # b = np.array([(0,1,0,1),(3,4,5,2)])
 # #

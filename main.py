@@ -76,7 +76,7 @@ if __name__ == "__main__":
     
     # Restrict usage of GPUs
     cuda_environment["CUDA_VISIBLE_DEVICES"]=str(var_dict['gpu'])
-    with open('Models/'+ var_dict['name'] + '/' + var_dict['name']+ "_params.txt", "w") as myfile:
+    with open('Models/'+ var_dict['name'] + '/' + 'fold_' + str(var_dict['fold']) + '/' + var_dict['name']+ "_params.txt", "w") as myfile:
         for key in sorted(var_dict):
             myfile.write(key + "," + str(var_dict[key]) + "\n")
     
@@ -86,20 +86,19 @@ if __name__ == "__main__":
         gen_only = True
     
     # Define the model
-    model = cycleGAN.Model(\
-        mod_name=var_dict['name'],\
-        data_file=var_dict['dataset'],\
-        buffer_size=var_dict['buffer_size'],\
-        dis_noise=var_dict['dis_noise'],\
-        architecture=var_dict['architecture'],\
-        lambda_c=var_dict['lambda_c'],\
-        lambda_h=var_dict['lambda_h'],\
-        deconv=var_dict['deconv'],\
-        patchgan=var_dict['PatchGAN'],\
-        verbose=(var_dict['verbose']!=0),\
-        gen_only=gen_only,
-        log_name=var_dict['log_name'],
-        fold=var_dict['fold'])
+    model = cycleGAN.Model(mod_name=var_dict['name'],
+                           data_file=var_dict['dataset'],
+                           buffer_size=var_dict['buffer_size'],
+                           dis_noise=var_dict['dis_noise'],
+                           architecture=var_dict['architecture'],
+                           lambda_c=var_dict['lambda_c'],
+                           lambda_h=var_dict['lambda_h'],
+                           deconv=var_dict['deconv'],
+                           patchgan=var_dict['PatchGAN'],
+                           verbose=(var_dict['verbose']!=0),
+                           gen_only=gen_only,
+                           log_name=var_dict['log_name'],
+                           fold=var_dict['fold'])
     
     # Plot parameter properties, if applicable
     if var_dict['verbose']:
@@ -113,14 +112,18 @@ if __name__ == "__main__":
     elif var_dict['mode'] == 'training':
         # Train the model
 
-        loss_gen_A,loss_gen_B,loss_dis_A,loss_dis_B = \
-        model.train(batch_size=var_dict['batch_size'],\
-                    lambda_c=var_dict['lambda_c'],\
-                    lambda_h=var_dict['lambda_h'],\
-                    save=bool(var_dict['save']),\
-                    n_epochs=var_dict['epoch'],\
-                    syn_noise=var_dict['syn_noise'],\
-                    real_noise=var_dict['real_noise'])
+        loss_gen_A,loss_gen_B,loss_dis_A,loss_dis_B, best_dice, corr_best_dice, best_corr_score = model.train(batch_size=var_dict['batch_size'],
+                                                                             lambda_c=var_dict['lambda_c'],
+                                                                             lambda_h=var_dict['lambda_h'],
+                                                                             save=bool(var_dict['save']),
+                                                                             n_epochs=var_dict['epoch'],
+                                                                             syn_noise=var_dict['syn_noise'],
+                                                                             real_noise=var_dict['real_noise'])
+
+        with open(os.path.join('Models', var_dict['name'], 'fold_' + str(var_dict['fold']), 'best_dice'), 'w') as file:
+            file.write('Best dice Score in Fold {}: {}'+'\n'.format(var_dict['fold'], best_dice))
+            file.write('Corresponding Pearson Corr: {}'+'\n'.format(corr_best_dice))
+            file.write('Best Pearson Corr: {}'+'\n'.format(best_corr_score))
 
         # np.save("./Models/" + var_dict['name'] + '/' + var_dict['name'] + '_loss_gen_A.npy',np.array(loss_gen_A).T)
         # np.save("./Models/" + var_dict['name'] + '/' + var_dict['name'] + '_loss_gen_B.npy',np.array(loss_gen_B).T)
@@ -128,14 +131,14 @@ if __name__ == "__main__":
         # np.save("./Models/" + var_dict['name'] + '/' + var_dict['name'] + '_loss_dis_B.npy',np.array(loss_dis_B).T)
 
     elif var_dict['mode'] == 'gen_A':
-        model.generator_A(batch_size=var_dict['batch_size'],\
-                          lambda_c=var_dict['lambda_c'],\
+        model.generator_A(batch_size=var_dict['batch_size'],
+                          lambda_c=var_dict['lambda_c'],
                           lambda_h=var_dict['lambda_h'],
                           split= var_dict['split'])
         
     elif var_dict['mode'] == 'gen_B':
-        model.generator_B(batch_size=var_dict['batch_size'],\
-                          lambda_c=var_dict['lambda_c'],\
+        model.generator_B(batch_size=var_dict['batch_size'],
+                          lambda_c=var_dict['lambda_c'],
                           lambda_h=var_dict['lambda_h'],
                           checkpoint=var_dict['checkpoint'],
                           split= var_dict['split'])

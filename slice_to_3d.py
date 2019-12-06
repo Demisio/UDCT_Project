@@ -15,7 +15,7 @@ import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
 
-def read_save_files(dimensions, file_list, file_name, segment):
+def read_save_files(dimensions, file_list, file_name, segment, inp_noise=False):
     """
     Function takes dimensions and file_list as input (obtained from other helper function) and saves all images
     in a certain folder into a 3D volume image
@@ -35,6 +35,10 @@ def read_save_files(dimensions, file_list, file_name, segment):
         print('INFO:   Segmented images as input, converting values to get better contrast (ONLY valid for heart data)')
     else:
         print('INFO:   Raw images as input, no value conversion done')
+    if inp_noise:
+        print('INFO:   Added noise')
+    else:
+        print('INFO:   No noise was added')
 
     for el in file_list:
         reg_list = regex.findall(el)
@@ -44,6 +48,12 @@ def read_save_files(dimensions, file_list, file_name, segment):
             img[img == 1] = 0
             img[img == 2] = 120
             img[img == 3] = 255
+        if inp_noise:
+            # idea: add noise with variance of 0.05 --> converted to uint8 values, leads to roughly 12
+            noise = np.rint(np.random.normal(0, 12, size=img.shape)).astype(np.int16)
+            img = img.astype(np.int16)
+            img += noise
+            img = np.clip(img, 0, 255).astype(np.uint8)
 
         img = img.reshape((dimensions[0], dimensions[1], dimensions[2]))
         vol_arr[int(reg_list[-1]), :, :, :] = img
@@ -59,14 +69,19 @@ if __name__ == '__main__':
 
 
     ## Raw images
-    segment = False
-    data_path = './Data/Heart/Raw/'
-    save_path = './Data/Heart/3D/Raw/'
+    # segment = False
+    # noise = False
+    # data_path = './Data/Heart/Raw/'
+    # save_path = './Data/Heart/3D/Raw/'
 
     ## Segmented images
-    # segment = True
-    # data_path = './Data/Heart/Segmented/'
-    # save_path = './Data/Heart/3D/Segmented/'
+    segment = True
+    noise = True
+    data_path = './Data/Heart/Segmented/'
+    if noise:
+        save_path = './Data/Heart/3D/Segmented_noisy/'
+    else:
+        save_path = './Data/Heart/3D/Segmented/'
 
     files = os.listdir(data_path)
     files.remove('old')
@@ -84,4 +99,4 @@ if __name__ == '__main__':
         im_path = filepaths[idx]
         file_name = filenames[idx]
         file_list, dimensions, flag = get_file_list(im_path)
-        im_list = read_save_files(dimensions, file_list, file_name, segment)
+        im_list = read_save_files(dimensions, file_list, file_name, segment, noise)

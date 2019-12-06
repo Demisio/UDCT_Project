@@ -11,6 +11,8 @@ import logging
 import sys
 import cv2
 from sklearn.metrics import f1_score, roc_auc_score
+from scipy.stats import pearsonr
+from collections import deque
 
 sys.path.append('./Discriminator')
 sys.path.append('./Generator')
@@ -122,10 +124,11 @@ class Model:
         #         self.saver    = tf.train.Saver(var_list=self.list_gen)
 
         with self.graph.as_default():
-            self.saver = tf.train.Saver(max_to_keep=2, keep_checkpoint_every_n_hours=2)
+            self.saver = tf.train.Saver(max_to_keep=2)
             self.saver_best_dice = tf.train.Saver(max_to_keep=2)
 
         self.log_name = log_name
+        self.fold_name = 'fold_' + str(self.fold)
 
 
     
@@ -312,8 +315,15 @@ class Model:
 
         real_start_time = time.time()
 
-        # initialise dice_score
+        # initialise dice_score & deque for consideration of last couple iterations
         best_dice_score = 0
+        best_dice_deque = deque([0] * 3, maxlen=3)
+        best_dice_epoch = 0
+
+        best_corr_score = 0
+        best_corr_epoch = 0
+        corr_best_dice = 0
+
         print('INFO:   Starting Training')
         for epoch in range(1, n_epochs+1):
 
@@ -494,31 +504,46 @@ class Model:
             print('')
             print('--- Evaluation of Training Data ---')
 
-            train_mean_dice = self.do_validation(self.train_data.iterate_batches)
+            train_mean_dice, tr_frac_list_b, tr_frac_list_fake_b, tr_corr = self.do_validation(self.train_data.iterate_batches)
 
             print('Training Dice Score: {}'.format(train_mean_dice))
             print('')
             print('--- Evaluation of Validation Data ---')
 
-            val_mean_dice = self.do_validation(self.validation_data.iterate_batches)
+            val_mean_dice, val_frac_list_b, val_frac_list_fake_b, val_corr = self.do_validation(self.validation_data.iterate_batches)
 
             print('Validation Dice Score: {}'.format(val_mean_dice))
 
-            if val_mean_dice >= best_dice_score:
-                best_dice_score = val_mean_dice
+            # Use deque to consider the last 3 validation results to avoid sudden jumps in model performance
+            best_dice_deque.append(val_mean_dice)
+            smoothed_best_dice = np.mean(best_dice_deque)
+
+            ## TODO: Add condition to only include the collagen fraction when working with heart data
+            if smoothed_best_dice >= best_dice_score:
+                best_dice_score = smoothed_best_dice
+                best_dice_epoch = epoch
+                corr_best_dice = val_corr # get the dice score at this epoch to see if it corresponds
                 best_file = os.path.join(self.log_dir, 'model_best_dice.ckpt')
                 self.saver_best_dice.save(self.sess, best_file, global_step=epoch)
-                print('INFO:  Found new best Dice score on validation set! - %f -  Saving model_best_dice.ckpt' % val_mean_dice)
+                print('INFO:  Found new best Dice score on validation set (smoothed)! - %f -  Saving model_best_dice.ckpt' % smoothed_best_dice)
+                print('Corresponding Pearson Corr. is: {}'.format(corr_best_dice))
+                print('INFO:  Epoch = {}'.format(best_dice_epoch))
 
-            train_summary_dice = self.sess.run(self.train_summary,
-                                               feed_dict={self.train_mean_dice_summary_: train_mean_dice})
+            if val_corr >= best_corr_score:
+                best_corr_score = val_corr
+                best_corr_epoch = epoch
+                print('INFO:  Found new best Pearson corr. on validation set (non-smoothed)' % val_corr)
+                print('INFO:  Epoch = {}'.format(best_corr_epoch))
 
-            val_summary_dice = self.sess.run(self.val_summary,
-                                             feed_dict={self.val_mean_dice_summary_: val_mean_dice})
-            # summary_str = self.sess.run(self.summary,
-            #                             feed_dict = {self.rel_lr_sum: rel_lr})
-            # self.summary_writer.add_summary(summary_str, epoch)
-            # self.summary_writer.flush()
+            train_summary_metrics = self.sess.run(self.train_summary,
+                                               feed_dict={self.train_mean_dice_summary_: train_mean_dice,
+                                                          self.train_corr_summary_: tr_corr})
+
+            val_summary_metrics = self.sess.run(self.val_summary,
+                                             feed_dict={self.val_mean_dice_summary_: val_mean_dice,
+                                                        self.val_corr_summary_: val_corr})
+
+
 
             train_summary_dis = self.sess.run(self.train_loss_dis,
                                               feed_dict = {self.train_loss_dis_A_summary_ : np.mean(vec_l_dis_A),
@@ -547,10 +572,10 @@ class Model:
                                                      self.img_B_fake_sum_: im_fake_B})
 
             # Add Summaries to tensorboard
-            self.summary_writer.add_summary(train_summary_dice, epoch)
+            self.summary_writer.add_summary(train_summary_metrics, epoch)
             self.summary_writer.flush()
 
-            self.summary_writer.add_summary(val_summary_dice, epoch)
+            self.summary_writer.add_summary(val_summary_metrics, epoch)
             self.summary_writer.flush()
 
             self.summary_writer.add_summary(train_summary_dis, epoch)
@@ -588,7 +613,7 @@ class Model:
             loss_dis_B_list.append((loss_dis_B))
 
             # establish checkpoints
-            if epoch % (n_epochs / 10) == 0 or epoch == n_epochs or epoch == 1:
+            if epoch % (n_epochs / 20) == 0 or epoch == n_epochs:
                 checkpoint_file = os.path.join(self.log_dir, 'model.ckpt')
                 self.saver.save(self.sess, checkpoint_file, global_step=epoch)
 
@@ -596,14 +621,17 @@ class Model:
         print('Training took a total of {} hours'.format(final_time / 3600.0))
         # print('Number of trainable Parameters in model: ' + self.sess.run(str(count_params)))
         print('')
-        print('Best Dice Score on Validation set is: {}'.format(best_dice_score))
+        print('Best Dice Score on Validation set is: {} at Epoch {}'.format(best_dice_score, best_dice_epoch))
+        print('Corresponding Pearson Corr. is: {}'.format(corr_best_dice))
+        print('')
+        print('Best Pearson Corr. on Validation set is: {} at Epoch {}'.format(best_corr_score, best_corr_epoch))
 
-        return [loss_gen_A_list,loss_gen_B_list,loss_dis_A_list, loss_dis_B_list]
+        return [loss_gen_A_list,loss_gen_B_list,loss_dis_A_list, loss_dis_B_list], best_dice_score, corr_best_dice, best_corr_score
 
     
     def generator_A(self,batch_size=32,lambda_c=0.,lambda_h=0., checkpoint='latest', split = 'train'):
 
-        self.log_dir = os.path.join('/das/work/p18/p18203/Code/UDCT/logs', self.log_name)
+        self.log_dir = os.path.join('./logs', self.log_name, self.fold_name)
 
         f              = h5py.File(self.data_file,"r")
         f_save         = h5py.File("./Models/" + self.mod_name + '/' + self.mod_name + '_' + split +'_gen_A.h5',"w")
@@ -646,7 +674,7 @@ class Model:
 
     def generator_B(self,batch_size=32,lambda_c=0.,lambda_h=0.,checkpoint = 'latest', split = 'train'):
 
-        self.log_dir = os.path.join('/das/work/p18/p18203/Code/UDCT/logs', self.log_name)
+        self.log_dir = os.path.join('./logs', self.log_name, self.fold_name)
 
         f              = h5py.File(self.data_file,"r")
         f_save         = h5py.File("./Models/" + self.mod_name + '/' + self.mod_name + '_' + split +'_gen_B.h5',"w")
@@ -759,7 +787,26 @@ class Model:
                                                                       self.B: rd_b,
                                                                       self.n_labels: nr_labels})
 
-        return f1_macro
+            # obtain pearson corr for collagen fraction
+            if heart_data:
+                frac_list_b = []
+                frac_list_fake_b = []
+
+                for i in range(rd_b.shape[0]):
+                    coll_b = np.count_nonzero(rd_b[i, :, :, :] == 0)
+                    coll_fake_b = np.count_nonzero(rd_fk_b[i, :, :, :] == 0)
+
+                    cells_b = np.count_nonzero(rd_b[i, :, :, :] == 1)
+                    cells_fake_b = np.count_nonzero(rd_fk_b[i, :, :, :] == 1)
+
+                    fraction_b = coll_b / cells_b
+                    fraction_fake_b = coll_fake_b / cells_fake_b
+
+                    frac_list_b.append(fraction_b)
+                    frac_list_fake_b.append(fraction_fake_b)
+
+
+        return f1_macro, frac_list_b, frac_list_fake_b
 
 
     def do_validation(self, iterator):
@@ -770,6 +817,8 @@ class Model:
         """
         with self.graph.as_default():
             dice_score_aggr = 0
+            frac_list_b = []
+            frac_list_fake_b = []
             num_batches = 0
             print('Start num_batches: {}'.format(num_batches))
 
@@ -782,19 +831,26 @@ class Model:
                     continue
 
                 # images_a, images_b, im_fake_A, im_fake_B, cyc_A, cyc_B = self.predict(batch_a, batch_b)
-                f1_macro = self.predict_seg(batch_a, batch_b, heart_data=True)
+                f1_macro, coll_frac_b, coll_frac_fake_b = self.predict_seg(batch_a, batch_b, heart_data=True)
 
                 print('F1 macro: {}'.format(f1_macro))
                 # make sure only 1 element is in list so we can add it
                 assert len(f1_macro) == 1
 
+                #dice score and collagen fractions
                 dice_score_aggr += f1_macro[0]
+                frac_list_b += coll_frac_b
+                frac_list_fake_b += coll_frac_fake_b
+
+                #get pearson correlation for the collagen fractions
+                corr, _ = pearsonr(frac_list_b, frac_list_fake_b)
+
                 num_batches += 1
 
             # get the mean dice score for the dataset
             mean_dice_score = dice_score_aggr / num_batches
 
-        return mean_dice_score
+        return mean_dice_score, frac_list_b, frac_list_fake_b, corr
 
     #loading weights and other stuff, function from Christian Baumgartner's discriminative learning toolbox
     def load_weights(self, log_dir=None, type='latest', **kwargs):
@@ -827,9 +883,15 @@ class Model:
             self.val_mean_dice_summary_ = tf.placeholder(tf.float32, shape=[], name='val_mean_dice')
             val_mean_dice_summary = tf.summary.scalar('Mean_Dice_Validation', self.val_mean_dice_summary_)
 
+            self.train_corr_summary_ = tf.placeholder(tf.float32, shape=[], name='train_corr')
+            train_corr_summary = tf.summary.scalar('Pearson_Corr_Training', self.train_corr_summary_)
+
+            self.val_corr_summary_ = tf.placeholder(tf.float32, shape=[], name='val_corr')
+            val_corr_summary = tf.summary.scalar('Pearson_Corr_Validation', self.val_corr_summary_)
+
             # self.summary = tf.summary.merge_[train_mean_dice_summary, val_mean_dice_summary]
-            self.train_summary = tf.summary.merge([train_mean_dice_summary])
-            self.val_summary = tf.summary.merge([val_mean_dice_summary])
+            self.train_summary = tf.summary.merge([train_mean_dice_summary, train_corr_summary])
+            self.val_summary = tf.summary.merge([val_mean_dice_summary, val_corr_summary])
 
             # Losses
             self.train_loss_dis_A_summary_ = tf.placeholder(tf.float32, shape=[], name='l_D_A')
@@ -866,7 +928,7 @@ class Model:
     def _setup_log_dir_and_continue_mode(self):
 
         # Default values
-        self.log_dir = os.path.join('/das/work/p18/p18203/Code/UDCT/logs', self.log_name)
+        self.log_dir = os.path.join('./logs', self.log_name, self.fold_name)
         self.init_checkpoint_path = None
         self.continue_run = False
         self.init_step = 0

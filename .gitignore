@@ -1,11 +1,14 @@
 
-Models
-logs
-Images
-Data/Heart/Raw
-Data/Heart/Segmented
-Data/Heart/Test
-Data/C_Elegans
+/Models/*
+/logs/*
+/Images
+/Data/Heart/Raw
+/Data/Heart/Segmented
+/Data/Heart/Test
+/Data/C_Elegans
+/Scripts/old/
+/notebooks/
 
 
-
+!/Models/Heart_dice_corr
+!/logs/Heart_dice_corr
