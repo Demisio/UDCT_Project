@@ -820,7 +820,6 @@ class Model:
             frac_list_b = []
             frac_list_fake_b = []
             num_batches = 0
-            print('Start num_batches: {}'.format(num_batches))
 
             for batch in iterator(self.batch_size):
                 batch_a, batch_b = batch
@@ -833,7 +832,6 @@ class Model:
                 # images_a, images_b, im_fake_A, im_fake_B, cyc_A, cyc_B = self.predict(batch_a, batch_b)
                 f1_macro, coll_frac_b, coll_frac_fake_b = self.predict_seg(batch_a, batch_b, heart_data=True)
 
-                print('F1 macro: {}'.format(f1_macro))
                 # make sure only 1 element is in list so we can add it
                 assert len(f1_macro) == 1
 
