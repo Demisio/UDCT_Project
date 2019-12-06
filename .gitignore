@@ -10,5 +10,5 @@
 /notebooks/
 
 
-!/Models/Heart_dice_corr
-!/logs/Heart_dice_corr
+!/Models/Heart_dice_corr/
+!/logs/Heart_dice_corr/

@@ -532,7 +532,7 @@ class Model:
             if val_corr >= best_corr_score:
                 best_corr_score = val_corr
                 best_corr_epoch = epoch
-                print('INFO:  Found new best Pearson corr. on validation set (non-smoothed)' % val_corr)
+                print('INFO:  Found new best Pearson corr. on validation set (non-smoothed): {}'.format(best_corr_score))
                 print('INFO:  Epoch = {}'.format(best_corr_epoch))
 
             train_summary_metrics = self.sess.run(self.train_summary,
@@ -742,10 +742,10 @@ class Model:
             im_fake_B = self.sess.run(self.fake_B, feed_dict={self.A: images_a})
 
             im_fake_B = (np.minimum(np.maximum(im_fake_B,0),1)*(2**8-1)).astype(np.uint8)
-            print('Non Rounded B')
-            print(images_b[0,50:65,50:65,:])
-            print('Non Rounded Fake B')
-            print(im_fake_B[0,50:65,50:65,:])
+            # print('Non Rounded B')
+            # print(images_b[0,50:65,50:65,:])
+            # print('Non Rounded Fake B')
+            # print(im_fake_B[0,50:65,50:65,:])
 
             # self.lambda_c: lambda_c,
             # self.lambda_h: lambda_h}
@@ -760,10 +760,10 @@ class Model:
             else:
                 raise ValueError("Currently only heart_data is supported for validation")
 
-            print('Rounded B')
-            print(rd_b[0,50:65,50:65,:])
-            print('Rounded Fake B')
-            print(rd_fk_b[0,50:65,50:65,:])
+            # print('Rounded B')
+            # print(rd_b[0,50:65,50:65,:])
+            # print('Rounded Fake B')
+            # print(rd_fk_b[0,50:65,50:65,:])
             # assert rd_a.shape[0] == rd_b.shape[0] == rd_fk_a.shape[0] == rd_fk_b.shape[0] == 2
             # assert rd_a.shape[1] == rd_b.shape[1] == rd_fk_a.shape[1] == rd_fk_b.shape[1]
             # assert rd_a.shape[2] == rd_b.shape[2] == rd_fk_a.shape[2] == rd_fk_b.shape[2]
