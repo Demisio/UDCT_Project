@@ -348,3 +348,17 @@ def clip_and_rescale_sitk_image(sitk_image, clip_range, data_type='float32'):
     rescaled_image = rescale.Execute(clipped_image, *range_dict[data_type])
 
     return rescaled_image
+
+# from Christine Tanner's DeepMicroIA
+class seedKeeper:
+    """ Simple class to manage seeds for experimental repeatability."""
+    def __init__(self, initial_seed=1991):
+        self.seed = initial_seed
+    def fetch(self):
+        s = self.seed
+        self.seed += 1
+        return s
+    def setSeed(self):
+        seed = self.fetch()
+        np.random.seed(seed)
+

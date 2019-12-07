@@ -1,4 +1,5 @@
 import numpy as np
+import test2
 # import tensorflow as tf
 # from tensorflow.python.client import device_lib
 import os
@@ -79,14 +80,14 @@ from scipy.stats import pearsonr
 # print(ind)
 # print(labels)
 
-path = './data_processing/aug_heart_data_noisy.h5'
-data = h5py.File(path, 'r')
+# path = './data_processing/aug_heart_data_noisy.h5'
+# data = h5py.File(path, 'r')
+# #
+# part_a = data['A/data_1'][0,20:40,20:40,0]
+# part_b = data['B/data_1'][0,20:40,20:40,0]
 #
-part_a = data['A/data_1'][0,20:40,20:40,0]
-part_b = data['B/data_1'][0,20:40,20:40,0]
-
-print(part_a)
-print(part_b)
+# print(part_a)
+# print(part_b)
 # aug_factor = int(np.array(data['A/aug_factor']))
 # imshape = np.shape(data['A/data_1'][:,0,0,0])[0]
 # print(imshape)
@@ -128,16 +129,17 @@ print(part_b)
 # print(c)
 
 
-# a = np.asarray([(3,1)])
-# # b = [2,3]
-# c = np.asarray([(5,1)])
-# # print(b)
-# # b += a
-# # print(b)
-# #
-# print(a)
-# print(c)
-# corr, _ = pearsonr(a,c)
+a = np.asarray([1.4,2.6,4.7])
+# b = [2,3]
+c = np.asarray([1.3,2.8,5.0])
+# print(b)
+# b += a
+# print(b)
+#
+print(a)
+print(c)
+corr, _ = pearsonr(a,c)
+print(corr)
 # print(corr)
 # a = np.array([(0,1,2,1,3,4,5,2)])
 # # b = np.array([(0,1,0,1),(3,4,5,2)])
@@ -170,3 +172,36 @@ print(part_b)
 # for idx in batch_indices:
 #     print('index: ' + str(idx))
 #     print(data['A' + '/data_' + str(idx)][0,0,0,:])
+#
+# np.random.seed(1)
+# a = np.array([1,3,5,7])
+# b = np.array([7,5,4,1])
+# c = np.arange(10)
+# d = [a, b, c]
+#
+# # sample()
+# # sample()
+# #
+# # for i in range(2):
+# #     sample()
+# #
+# # shuffle(a)
+# # shuffle(b)
+# class tests:
+#     def __init__(self,name):
+#         name = name
+#
+#     def samples(self):
+#         for i in range(5):
+#             test2.sample(c)
+#
+# test = tests(name='hi')
+# test.samples()
+# for i in range(3):
+#     test2.sample(d[i])
+# np.random.shuffle(a)
+# np.random.shuffle(b)
+# np.random.shuffle(c)
+# print(a)
+# print(b)
+# print(c)

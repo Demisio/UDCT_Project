@@ -111,14 +111,14 @@ if __name__ == "__main__":
             
     elif var_dict['mode'] == 'training':
         # Train the model
-
-        loss_gen_A,loss_gen_B,loss_dis_A,loss_dis_B, best_dice, corr_best_dice, best_corr_score = model.train(batch_size=var_dict['batch_size'],
-                                                                             lambda_c=var_dict['lambda_c'],
-                                                                             lambda_h=var_dict['lambda_h'],
-                                                                             save=bool(var_dict['save']),
-                                                                             n_epochs=var_dict['epoch'],
-                                                                             syn_noise=var_dict['syn_noise'],
-                                                                             real_noise=var_dict['real_noise'])
+        # loss_gen_A, loss_gen_B, loss_dis_A, loss_dis_B,
+        best_dice, corr_best_dice, best_corr_score = model.train(batch_size=var_dict['batch_size'],
+                                                                 lambda_c=var_dict['lambda_c'],
+                                                                 lambda_h=var_dict['lambda_h'],
+                                                                 save=bool(var_dict['save']),
+                                                                 n_epochs=var_dict['epoch'],
+                                                                 syn_noise=var_dict['syn_noise'],
+                                                                 real_noise=var_dict['real_noise'])
 
         with open(os.path.join('Models', var_dict['name'], 'fold_' + str(var_dict['fold']), 'best_dice'), 'w') as file:
             file.write('Best dice Score in Fold {}: {}'+'\n'.format(var_dict['fold'], best_dice))

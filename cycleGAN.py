@@ -28,6 +28,7 @@ from Utilities import Utilities
 from tfwrapper import utils as tf_utils
 from tfwrapper.losses import mean_dice
 from data_processing import heart_data, batch_provider
+from utils import seedKeeper
 
 
 class Model:
@@ -130,6 +131,10 @@ class Model:
         self.log_name = log_name
         self.fold_name = 'fold_' + str(self.fold)
 
+        self.seed = 42
+        # tf.set_random_seed(42)
+        # np.random.seed(42)
+
 
     
     def create(self):
@@ -140,6 +145,8 @@ class Model:
         self.graph = tf.Graph()
 
         with self.graph.as_default():
+
+
 
             # Define variable learning rate and dis_noise
             self.relative_lr    = tf.placeholder_with_default([1.],[1],name="relative_lr")
@@ -294,6 +301,8 @@ class Model:
 
     def train(self, batch_size=32,lambda_c=0.,lambda_h=0.,n_epochs=0,save=True,syn_noise=0.,real_noise=0.):
 
+        np.random.seed(self.seed)
+
         self.batch_size = batch_size
         # Sort out proper logging, also add checkpoints & continue from there if necessary
         self._setup_log_dir_and_continue_mode()
@@ -386,8 +395,8 @@ class Model:
                 else:
                     raise ValueError('Dataset B is not int8 or int16')
 
-                images_a  += np.random.randn(*images_a.shape)*real_noise
-                images_b  += np.random.randn(*images_b.shape)*syn_noise
+                # images_a  += np.random.randn(*images_a.shape)*real_noise
+                # images_b  += np.random.randn(*images_b.shape)*syn_noise
 
                 _, l_gen_A, im_fake_A, l_gen_B, im_fake_B, cyc_A, cyc_B, sA, sB, sfA, sfB, lcA, lcB = self.sess.run([self.opt_gen,\
                                                                         self.loss_gen_A,\
@@ -626,7 +635,7 @@ class Model:
         print('')
         print('Best Pearson Corr. on Validation set is: {} at Epoch {}'.format(best_corr_score, best_corr_epoch))
 
-        return [loss_gen_A_list,loss_gen_B_list,loss_dis_A_list, loss_dis_B_list], best_dice_score, corr_best_dice, best_corr_score
+        return best_dice_score, corr_best_dice, best_corr_score  #, [loss_gen_A_list,loss_gen_B_list,loss_dis_A_list, loss_dis_B_list],
 
     
     def generator_A(self,batch_size=32,lambda_c=0.,lambda_h=0., checkpoint='latest', split = 'train'):
@@ -791,16 +800,16 @@ class Model:
             if heart_data:
                 frac_list_b = []
                 frac_list_fake_b = []
-
+                epsi = 1e-10
                 for i in range(rd_b.shape[0]):
-                    coll_b = np.count_nonzero(rd_b[i, :, :, :] == 0)
-                    coll_fake_b = np.count_nonzero(rd_fk_b[i, :, :, :] == 0)
+                    coll_b = np.sum(rd_b[i, :, :, :] == 0)
+                    coll_fake_b = np.sum(rd_fk_b[i, :, :, :] == 0)
 
-                    cells_b = np.count_nonzero(rd_b[i, :, :, :] == 1)
-                    cells_fake_b = np.count_nonzero(rd_fk_b[i, :, :, :] == 1)
+                    cells_b = np.sum(rd_b[i, :, :, :] == 1)
+                    cells_fake_b = np.sum(rd_fk_b[i, :, :, :] == 1)
 
-                    fraction_b = coll_b / cells_b
-                    fraction_fake_b = coll_fake_b / cells_fake_b
+                    fraction_b = coll_b / (epsi + cells_b)
+                    fraction_fake_b = coll_fake_b / (epsi + cells_fake_b)
 
                     frac_list_b.append(fraction_b)
                     frac_list_fake_b.append(fraction_fake_b)
@@ -847,7 +856,10 @@ class Model:
 
             # get the mean dice score for the dataset
             mean_dice_score = dice_score_aggr / num_batches
-
+            # print('### B Frac ###')
+            # print(frac_list_b)
+            # print('### Fake B Frac ###')
+            # print(frac_list_fake_b)
         return mean_dice_score, frac_list_b, frac_list_fake_b, corr
 
     #loading weights and other stuff, function from Christian Baumgartner's discriminative learning toolbox
