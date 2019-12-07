@@ -513,15 +513,17 @@ class Model:
             print('')
             print('--- Evaluation of Training Data ---')
 
-            train_mean_dice, tr_frac_list_b, tr_frac_list_fake_b, tr_corr = self.do_validation(self.train_data.iterate_batches)
+            train_mean_dice, tr_frac_list_b, tr_frac_list_fake_b, tr_corr, sk_train_dice = self.do_validation(self.train_data.iterate_batches)
 
             print('Training Dice Score: {}'.format(train_mean_dice))
+            print('Training SKLearn Dice Score: {}'.format(sk_train_dice))
             print('')
             print('--- Evaluation of Validation Data ---')
 
-            val_mean_dice, val_frac_list_b, val_frac_list_fake_b, val_corr = self.do_validation(self.validation_data.iterate_batches)
+            val_mean_dice, val_frac_list_b, val_frac_list_fake_b, val_corr, sk_val_dice = self.do_validation(self.validation_data.iterate_batches)
 
             print('Validation Dice Score: {}'.format(val_mean_dice))
+            print('Validation SKLearn Dice Score: {}'.format(sk_val_dice))
 
             # Use deque to consider the last 3 validation results to avoid sudden jumps in model performance
             best_dice_deque.append(val_mean_dice)
@@ -545,12 +547,14 @@ class Model:
                 print('INFO:  Epoch = {}'.format(best_corr_epoch))
 
             train_summary_metrics = self.sess.run(self.train_summary,
-                                               feed_dict={self.train_mean_dice_summary_: train_mean_dice,
-                                                          self.train_corr_summary_: tr_corr})
+                                                  feed_dict={self.train_mean_dice_summary_: train_mean_dice,
+                                                  self.train_corr_summary_: tr_corr,
+                                                  self.train_sk_dice_summary_: sk_train_dice})
 
             val_summary_metrics = self.sess.run(self.val_summary,
-                                             feed_dict={self.val_mean_dice_summary_: val_mean_dice,
-                                                        self.val_corr_summary_: val_corr})
+                                                feed_dict={self.val_mean_dice_summary_: val_mean_dice,
+                                                self.val_corr_summary_: val_corr,
+                                                self.val_sk_dice_summary_: sk_val_dice})
 
 
 
@@ -796,6 +800,10 @@ class Model:
                                                                       self.B: rd_b,
                                                                       self.n_labels: nr_labels})
 
+            flat_b = rd_b.flatten()
+            flat_fk_b = rd_fk_b.flatten()
+            sk_f1_macro = f1_score(flat_b, flat_fk_b,average='macro')
+
             # obtain pearson corr for collagen fraction
             if heart_data:
                 frac_list_b = []
@@ -815,7 +823,7 @@ class Model:
                     frac_list_fake_b.append(fraction_fake_b)
 
 
-        return f1_macro, frac_list_b, frac_list_fake_b
+        return f1_macro, frac_list_b, frac_list_fake_b, sk_f1_macro
 
 
     def do_validation(self, iterator):
@@ -826,6 +834,7 @@ class Model:
         """
         with self.graph.as_default():
             dice_score_aggr = 0
+            sk_dice = 0
             frac_list_b = []
             frac_list_fake_b = []
             num_batches = 0
@@ -839,13 +848,14 @@ class Model:
                     continue
 
                 # images_a, images_b, im_fake_A, im_fake_B, cyc_A, cyc_B = self.predict(batch_a, batch_b)
-                f1_macro, coll_frac_b, coll_frac_fake_b = self.predict_seg(batch_a, batch_b, heart_data=True)
+                f1_macro, coll_frac_b, coll_frac_fake_b, sk_f1_macro = self.predict_seg(batch_a, batch_b, heart_data=True)
 
                 # make sure only 1 element is in list so we can add it
                 assert len(f1_macro) == 1
 
                 #dice score and collagen fractions
                 dice_score_aggr += f1_macro[0]
+                sk_dice += sk_f1_macro
                 frac_list_b += coll_frac_b
                 frac_list_fake_b += coll_frac_fake_b
 
@@ -856,11 +866,12 @@ class Model:
 
             # get the mean dice score for the dataset
             mean_dice_score = dice_score_aggr / num_batches
+            mean_sk_dice = sk_dice / num_batches
             # print('### B Frac ###')
             # print(frac_list_b)
             # print('### Fake B Frac ###')
             # print(frac_list_fake_b)
-        return mean_dice_score, frac_list_b, frac_list_fake_b, corr
+        return mean_dice_score, frac_list_b, frac_list_fake_b, corr, mean_sk_dice
 
     #loading weights and other stuff, function from Christian Baumgartner's discriminative learning toolbox
     def load_weights(self, log_dir=None, type='latest', **kwargs):
@@ -899,9 +910,15 @@ class Model:
             self.val_corr_summary_ = tf.placeholder(tf.float32, shape=[], name='val_corr')
             val_corr_summary = tf.summary.scalar('Pearson_Corr_Validation', self.val_corr_summary_)
 
+            self.train_sk_dice_summary_ = tf.placeholder(tf.float32, shape=[], name='train_sk_dice')
+            train_sk_dice_summary = tf.summary.scalar('sk_dice_Training', self.train_sk_dice_summary_)
+
+            self.val_sk_dice_summary_ = tf.placeholder(tf.float32, shape=[], name='val_sk_dice')
+            val_sk_dice_summary = tf.summary.scalar('sk_dice_Validation', self.val_sk_dice_summary_)
+
             # self.summary = tf.summary.merge_[train_mean_dice_summary, val_mean_dice_summary]
-            self.train_summary = tf.summary.merge([train_mean_dice_summary, train_corr_summary])
-            self.val_summary = tf.summary.merge([val_mean_dice_summary, val_corr_summary])
+            self.train_summary = tf.summary.merge([train_mean_dice_summary, train_corr_summary, train_sk_dice_summary])
+            self.val_summary = tf.summary.merge([val_mean_dice_summary, val_corr_summary, val_sk_dice_summary])
 
             # Losses
             self.train_loss_dis_A_summary_ = tf.placeholder(tf.float32, shape=[], name='l_D_A')
