@@ -97,6 +97,7 @@ class BatchProvider_Heart():
             for idx, img in zip(batch_indices, img_ind):
                 batch_a[i, :, :, :] = self.data['A' + '/data_' + str(idx)][img, :, :, :]
                 batch_b[i, :, :, :] = self.data['B' + '/data_' + str(idx)][img, :, :, :]
+                # print('Use Sample / Slice: {} / {}'.format(idx, img))
                 i += 1
 
             yield batch_a, batch_b

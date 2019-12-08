@@ -13,6 +13,7 @@ import cv2
 from sklearn.metrics import f1_score, roc_auc_score
 from scipy.stats import pearsonr
 from collections import deque
+import matplotlib.pyplot as plt
 
 sys.path.append('./Discriminator')
 sys.path.append('./Generator')
@@ -58,7 +59,8 @@ class Model:
                  verbose=False,\
                  gen_only=False,
                  log_name='filler',
-                 fold=1):
+                 fold=1,
+                 checkpoints=1):
         """
         Create a Model (init). It will check, if a model with such a name has already been saved. If so, the model is being 
         loaded. Otherwise, a new model with this name will be created. It will only be saved, if the save function is being 
@@ -77,6 +79,8 @@ class Model:
         self.data_file           = data_file                              # hdf5 data file
 
         self.fold                = fold
+
+        self.checkpoints         = checkpoints                            #whether to do checkpoints or not (default = True)
 
         ## experiment configuration, non-automatic so far
         self.data = heart_data.heart_data(self.data_file, self.fold)
@@ -132,9 +136,8 @@ class Model:
         self.fold_name = 'fold_' + str(self.fold)
 
         self.seed = 42
-        # tf.set_random_seed(42)
-        # np.random.seed(42)
-
+        np.random.seed(self.seed)
+        tf.set_random_seed(self.seed)
 
     
     def create(self):
@@ -301,7 +304,7 @@ class Model:
 
     def train(self, batch_size=32,lambda_c=0.,lambda_h=0.,n_epochs=0,save=True,syn_noise=0.,real_noise=0.):
 
-        np.random.seed(self.seed)
+
 
         self.batch_size = batch_size
         # Sort out proper logging, also add checkpoints & continue from there if necessary
@@ -332,6 +335,9 @@ class Model:
         best_corr_score = 0
         best_corr_epoch = 0
         corr_best_dice = 0
+
+        if self.continue_run:
+            self.saver.restore(self.sess, self.init_checkpoint_path)
 
         print('INFO:   Starting Training')
         for epoch in range(1, n_epochs+1):
@@ -515,15 +521,38 @@ class Model:
 
             train_mean_dice, tr_frac_list_b, tr_frac_list_fake_b, tr_corr, sk_train_dice = self.do_validation(self.train_data.iterate_batches)
 
+            tr_b_meanfrac = np.mean(np.asarray(tr_frac_list_b))
+            tr_b_varfrac = np.var(np.asarray(tr_frac_list_b))
+            tr_fk_b_meanfrac = np.mean(np.asarray(tr_frac_list_fake_b))
+            tr_fk_b_varfrac = np.var(np.asarray(tr_frac_list_fake_b))
+
             print('Training Dice Score: {}'.format(train_mean_dice))
             print('Training SKLearn Dice Score: {}'.format(sk_train_dice))
+            print('Training Pearson Correlation of Collagen Fraction: {}'.format(tr_corr))
+            print('Training Collagen Fraction Real Image - Mean: {} / Variance: {}'.format(tr_b_meanfrac,
+                                                                                             tr_b_varfrac))
+            print('Training Collagen Fraction Fake Image - Mean: {} / Variance: {}'.format(tr_fk_b_meanfrac,
+                                                                                             tr_fk_b_varfrac))
             print('')
             print('--- Evaluation of Validation Data ---')
 
             val_mean_dice, val_frac_list_b, val_frac_list_fake_b, val_corr, sk_val_dice = self.do_validation(self.validation_data.iterate_batches)
 
+            val_b_meanfrac = np.mean(np.asarray(val_frac_list_b))
+            val_b_varfrac = np.var(np.asarray(val_frac_list_b))
+            val_fk_b_meanfrac = np.mean(np.asarray(val_frac_list_fake_b))
+            val_fk_b_varfrac = np.var(np.asarray(val_frac_list_fake_b))
+
             print('Validation Dice Score: {}'.format(val_mean_dice))
             print('Validation SKLearn Dice Score: {}'.format(sk_val_dice))
+            print('Validation Pearson Correlation of Collagen Fraction: {}'.format(val_corr))
+            print('Validation Collagen Fraction Real Image - Mean: {} / Variance: {}'.format(val_b_meanfrac,
+                                                                                             val_b_varfrac))
+            print('Validation Collagen Fraction Fake Image - Mean: {} / Variance: {}'.format(val_fk_b_meanfrac,
+                                                                                             val_fk_b_varfrac))
+
+            # Plots to check the collagen fractions in slices
+            # self.corr_plots(tr_frac_list_b, tr_frac_list_fake_b, val_frac_list_b, val_frac_list_fake_b)
 
             # Use deque to consider the last 3 validation results to avoid sudden jumps in model performance
             best_dice_deque.append(val_mean_dice)
@@ -547,14 +576,18 @@ class Model:
                 print('INFO:  Epoch = {}'.format(best_corr_epoch))
 
             train_summary_metrics = self.sess.run(self.train_summary,
-                                                  feed_dict={self.train_mean_dice_summary_: train_mean_dice,
-                                                  self.train_corr_summary_: tr_corr,
-                                                  self.train_sk_dice_summary_: sk_train_dice})
+                                                      feed_dict={self.train_mean_dice_summary_: train_mean_dice,
+                                                      self.train_corr_summary_: tr_corr,
+                                                      self.train_sk_dice_summary_: sk_train_dice,
+                                                      self.train_coll_frac_real_summary_: np.asarray(tr_frac_list_b),
+                                                      self.train_coll_frac_fake_summary_: np.asarray(tr_frac_list_fake_b)})
 
             val_summary_metrics = self.sess.run(self.val_summary,
                                                 feed_dict={self.val_mean_dice_summary_: val_mean_dice,
                                                 self.val_corr_summary_: val_corr,
-                                                self.val_sk_dice_summary_: sk_val_dice})
+                                                self.val_sk_dice_summary_: sk_val_dice,
+                                                self.val_coll_frac_real_summary_: np.asarray(val_frac_list_b),
+                                                self.val_coll_frac_fake_summary_: np.asarray(val_frac_list_fake_b)})
 
 
 
@@ -626,9 +659,10 @@ class Model:
             loss_dis_B_list.append((loss_dis_B))
 
             # establish checkpoints
-            if epoch % (n_epochs / 20) == 0 or epoch == n_epochs:
-                checkpoint_file = os.path.join(self.log_dir, 'model.ckpt')
-                self.saver.save(self.sess, checkpoint_file, global_step=epoch)
+            if self.checkpoints:
+                if epoch % (n_epochs / 20) == 0 or epoch == n_epochs:
+                    checkpoint_file = os.path.join(self.log_dir, 'model.ckpt')
+                    self.saver.save(self.sess, checkpoint_file, global_step=epoch)
 
         final_time = time.time() - real_start_time
         print('Training took a total of {} hours'.format(final_time / 3600.0))
@@ -897,28 +931,40 @@ class Model:
             # self.rel_lr_sum = tf.summary.scalar('learning_rate', self.rel_lr_)
             # Build the summary Tensor based on the TF collection of Summaries.
 
-            # Evaluation metrics
+            ## Dice Score
             self.train_mean_dice_summary_ = tf.placeholder(tf.float32, shape=[], name='train_mean_dice')
             train_mean_dice_summary = tf.summary.scalar('Mean_Dice_Training', self.train_mean_dice_summary_)
-
             self.val_mean_dice_summary_ = tf.placeholder(tf.float32, shape=[], name='val_mean_dice')
             val_mean_dice_summary = tf.summary.scalar('Mean_Dice_Validation', self.val_mean_dice_summary_)
 
+            ## Pearson Correlation
             self.train_corr_summary_ = tf.placeholder(tf.float32, shape=[], name='train_corr')
             train_corr_summary = tf.summary.scalar('Pearson_Corr_Training', self.train_corr_summary_)
-
             self.val_corr_summary_ = tf.placeholder(tf.float32, shape=[], name='val_corr')
             val_corr_summary = tf.summary.scalar('Pearson_Corr_Validation', self.val_corr_summary_)
 
+            ## Dice score calculated with Sklearn's library
             self.train_sk_dice_summary_ = tf.placeholder(tf.float32, shape=[], name='train_sk_dice')
             train_sk_dice_summary = tf.summary.scalar('sk_dice_Training', self.train_sk_dice_summary_)
-
             self.val_sk_dice_summary_ = tf.placeholder(tf.float32, shape=[], name='val_sk_dice')
             val_sk_dice_summary = tf.summary.scalar('sk_dice_Validation', self.val_sk_dice_summary_)
 
-            # self.summary = tf.summary.merge_[train_mean_dice_summary, val_mean_dice_summary]
-            self.train_summary = tf.summary.merge([train_mean_dice_summary, train_corr_summary, train_sk_dice_summary])
-            self.val_summary = tf.summary.merge([val_mean_dice_summary, val_corr_summary, val_sk_dice_summary])
+            ## Collagen Fractions
+            self.val_coll_frac_real_summary_ = tf.placeholder(tf.float32, shape=[self.data.nr_images], name='val_coll_frac_real')
+            val_coll_frac_real_summary = tf.summary.histogram('Val_Frac_Real', self.val_coll_frac_real_summary_)
+            self.val_coll_frac_fake_summary_ = tf.placeholder(tf.float32, shape=[self.data.nr_images], name='val_coll_frac_fake')
+            val_coll_frac_fake_summary = tf.summary.histogram('Val_Frac_Fake', self.val_coll_frac_fake_summary_)
+
+            self.train_coll_frac_real_summary_ = tf.placeholder(tf.float32, shape=[self.data.nr_images], name='train_coll_frac_real')
+            train_coll_frac_real_summary = tf.summary.histogram('train_Frac_Real', self.train_coll_frac_real_summary_)
+            self.train_coll_frac_fake_summary_ = tf.placeholder(tf.float32, shape=[self.data.nr_images], name='train_coll_frac_fake')
+            train_coll_frac_fake_summary = tf.summary.histogram('train_Frac_Fake', self.train_coll_frac_fake_summary_)
+
+            # Merging scalar summaries
+            self.train_summary = tf.summary.merge([train_mean_dice_summary, train_corr_summary, train_sk_dice_summary,
+                                                   train_coll_frac_real_summary, train_coll_frac_fake_summary])
+            self.val_summary = tf.summary.merge([val_mean_dice_summary, val_corr_summary, val_sk_dice_summary,
+                                                 val_coll_frac_real_summary, val_coll_frac_fake_summary])
 
             # Losses
             self.train_loss_dis_A_summary_ = tf.placeholder(tf.float32, shape=[], name='l_D_A')
@@ -960,22 +1006,22 @@ class Model:
         self.continue_run = False
         self.init_step = 0
 
-        # if self.do_checkpoints:
-        #     # If a checkpoint file already exists enable continue mode
-        #     if tf.gfile.Exists(self.log_dir):
-        #         init_checkpoint_path = tf_utils.get_latest_model_checkpoint_path(self.log_dir, 'model.ckpt')
-        #         if init_checkpoint_path is not False:
-        #             self.init_checkpoint_path = init_checkpoint_path
-        #             self.continue_run = True
-        #             self.init_step = int(self.init_checkpoint_path.split('/')[-1].split('-')[-1])
-        #             self.log_dir += '_cont'
-        #
-        #             logging.info(
-        #                 '--------------------------- Continuing previous run --------------------------------')
-        #             logging.info('Checkpoint path: %s' % self.init_checkpoint_path)
-        #             logging.info('Latest step was: %d' % self.init_step)
-        #             logging.info(
-        #                 '------------------------------------------------------------------------------------')
+        if self.checkpoints:
+            # If a checkpoint file already exists enable continue mode
+            if tf.gfile.Exists(self.log_dir):
+                init_checkpoint_path = tf_utils.get_latest_model_checkpoint_path(self.log_dir, 'model.ckpt')
+                if init_checkpoint_path is not False:
+                    self.init_checkpoint_path = init_checkpoint_path
+                    self.continue_run = True
+                    self.init_step = int(self.init_checkpoint_path.split('/')[-1].split('-')[-1])
+                    self.log_dir += '_cont'
+
+                    logging.info(
+                        '--------------------------- Continuing previous run --------------------------------')
+                    logging.info('Checkpoint path: %s' % self.init_checkpoint_path)
+                    logging.info('Latest step was: %d' % self.init_step)
+                    logging.info(
+                        '------------------------------------------------------------------------------------')
 
         tf.gfile.MakeDirs(self.log_dir)
         self.summary_writer = tf.summary.FileWriter(self.log_dir, self.graph)
@@ -993,6 +1039,28 @@ class Model:
                 print('  %s \t\t Num: %d \t\t Shape %s ' % (v.name, num, dims))
             print('\nTotal number of params: %d' % total)
 
+
+    def corr_plots(self, train_real_fraction, train_fake_fraction, val_real_fraction, val_fake_fraction):
+        fig, axes = plt.subplots(1, 2)
+
+        train_real_fraction = np.asarray(train_real_fraction)
+        train_fake_fraction = np.asarray(train_fake_fraction)
+        val_real_fraction = np.asarray(val_real_fraction)
+        val_fake_fraction = np.asarray(val_fake_fraction)
+
+        axes[0].plot(np.arange(100), train_real_fraction[0:100], '-b')
+        axes[0].plot(np.arange(100), train_fake_fraction[0:100], '-r')
+        axes[0].legend('Real Images', 'Fake Images')
+        axes[0].set_title('Training')
+
+        axes[1].plot(np.arange(100), val_real_fraction[0:100],'-b')
+        axes[1].plot(np.arange(100), val_fake_fraction[0:100], '-r')
+        axes[1].legend('Real Images', 'Fake Images')
+        axes[1].set_title('Validation')
+
+        plt.ion()
+        plt.show()
+        plt.pause(0.001)
 
     ######## Currently unused functions, left over from initial implementation ########
 

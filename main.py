@@ -19,14 +19,15 @@ if __name__ == "__main__":
     
     # List of ints
     sub_value_i = {}
-    sub_value_i['epoch']       = 200             # Number of epochs to be trained
+    sub_value_i['epoch']       = 250             # Number of epochs to be trained
     sub_value_i['batch_size']  = 2               # Batch size for training
     sub_value_i['buffer_size'] = 50              # Number of history elements used for Dis
     sub_value_i['save']        = 1               # If not 0, model is saved
     sub_value_i['gpu']         = 0               # Choose the GPU ID (if only CPU training, choose nonexistent number)
     sub_value_i['verbose']     = 0               # If not 0, some network information is being plotted
     sub_value_i['fold']        = 1               # Which fold is in use?
-    
+    sub_value_i['checkpoints'] = 1               # Do checkpoints?
+
     # List of strings
     sub_string = {}
     sub_string['name']         = 'unnamed'       # Name of model (should be unique). Is used to save/load models
@@ -98,7 +99,8 @@ if __name__ == "__main__":
                            verbose=(var_dict['verbose']!=0),
                            gen_only=gen_only,
                            log_name=var_dict['log_name'],
-                           fold=var_dict['fold'])
+                           fold=var_dict['fold'],
+                           checkpoints=var_dict['checkpoints'])
     
     # Plot parameter properties, if applicable
     if var_dict['verbose']:
