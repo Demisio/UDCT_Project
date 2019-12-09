@@ -19,7 +19,7 @@ if __name__ == "__main__":
     
     # List of ints
     sub_value_i = {}
-    sub_value_i['epoch']       = 250             # Number of epochs to be trained
+    sub_value_i['epoch']       = 200             # Number of epochs to be trained
     sub_value_i['batch_size']  = 2               # Batch size for training
     sub_value_i['buffer_size'] = 50              # Number of history elements used for Dis
     sub_value_i['save']        = 1               # If not 0, model is saved

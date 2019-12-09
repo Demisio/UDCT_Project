@@ -672,6 +672,7 @@ class Model:
         print('Corresponding Pearson Corr. is: {}'.format(corr_best_dice))
         print('')
         print('Best Pearson Corr. on Validation set is: {} at Epoch {}'.format(best_corr_score, best_corr_epoch))
+        print('Fold: {}'.format(self.fold))
 
         return best_dice_score, corr_best_dice, best_corr_score  #, [loss_gen_A_list,loss_gen_B_list,loss_dis_A_list, loss_dis_B_list],
 
