@@ -13,6 +13,13 @@ python main.py --dataset=./data_processing/aug_heart_data_noisy.h5 --name=Heart_
 python main.py --dataset=./Data/Heart/heart_train_set_noisy.h5 --name=Heart_noisy --log_name=Heart_noisy --mode=gen_B --checkpoint=latest
 
 #generate stuff for test set
+python overall_test.py --dataset=./data_processing/aug_heart_data_test.h5 --name=Heart_full --log_name=Heart_full --mode=test
+python overall_test.py --dataset=./data_processing/aug_heart_data_test.h5 --name=Heart_full --log_name=Heart_full --mode=validation
+python overall_test.py --dataset=./data_processing/aug_heart_data_test.h5 --name=Heart_full --log_name=Heart_full --mode=train
+
+
+
+
 python main.py --dataset=./Data/Heart/heart_test_set_noisy.h5 --name=Heart_noisy --log_name=Heart_noisy --mode=gen_B --checkpoint=latest --split=test
 
 #adapt parameters (filepaths) here first before running it --> creates png images from h5 file

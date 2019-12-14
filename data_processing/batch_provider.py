@@ -40,7 +40,7 @@ class BatchProvider_Heart():
         #get image indices, these correspond to slices
         ### do arange to get img idx array from 0 to 459, then sample from this, then perform operations
 
-        batch_img = np.random.choice(self.nr_img, size=batch_size, replace=False)
+        batch_img = np.random.choice(int(self.nr_img), size=batch_size, replace=False)
 
         ## Access desired image as follows:
         img_indices = self.aug_factor * batch_img + np.random.choice(self.aug_factor)
@@ -101,3 +101,30 @@ class BatchProvider_Heart():
                 i += 1
 
             yield batch_a, batch_b
+
+    def test_image(self,img_idx, batch_size=1, sample_vol=0):
+        """
+        Get a single test batch (= image) in non-random order
+        here, batch a has the following shape: [number of sample volumes, x, y, channels]
+        --> each specific first index represents a specific volume
+        """
+        # here, batch a has the following shape: [number of sample volumes, x, y, channels]
+        # --> each specific first index represents a specific volume
+        batch_a = np.zeros(shape=(batch_size, self.imshape[0], self.imshape[1], self.imshape[2]), dtype=np.uint8)
+        batch_b = np.zeros(shape=(batch_size, self.imshape[0], self.imshape[1], self.imshape[2]), dtype=np.uint8)
+
+        # get the batch indices, here these correspond to different sample volumes
+        # if batch size is larger than sample volumes, work with resampling
+
+        batch_indices = np.sort(self.sample_indices)
+        batch_indices = batch_indices[sample_vol]
+
+        ## Access desired image as follows:
+        img_indices = img_idx
+
+        # HDF5 requires indices to be in increasing order
+        batch_a[0, :, :, :] = self.data['A' + '/data_' + str(batch_indices)][img_indices, :, :, :]
+        batch_b[0, :, :, :] = self.data['B' + '/data_' + str(batch_indices)][img_indices, :, :, :]
+
+
+        return batch_a, batch_b, batch_indices

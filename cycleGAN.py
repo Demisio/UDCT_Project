@@ -82,6 +82,10 @@ class Model:
 
         self.checkpoints         = checkpoints                            #whether to do checkpoints or not (default = True)
 
+        self.seed = 42
+        np.random.seed(self.seed)
+
+
         ## experiment configuration, non-automatic so far
         self.data = heart_data.heart_data(self.data_file, self.fold)
 
@@ -132,12 +136,12 @@ class Model:
             self.saver = tf.train.Saver(max_to_keep=2)
             self.saver_best_dice = tf.train.Saver(max_to_keep=2)
 
+
         self.log_name = log_name
         self.fold_name = 'fold_' + str(self.fold)
 
-        self.seed = 42
-        np.random.seed(self.seed)
-        tf.set_random_seed(self.seed)
+
+
 
     
     def create(self):
@@ -149,7 +153,7 @@ class Model:
 
         with self.graph.as_default():
 
-
+            tf.set_random_seed(self.seed)
 
             # Define variable learning rate and dis_noise
             self.relative_lr    = tf.placeholder_with_default([1.],[1],name="relative_lr")
@@ -329,7 +333,7 @@ class Model:
 
         # initialise dice_score & deque for consideration of last couple iterations
         best_dice_score = 0
-        best_dice_deque = deque([0] * 3, maxlen=3)
+        best_dice_deque = deque([0] * 5, maxlen=5)
         best_dice_epoch = 0
 
         best_corr_score = 0
@@ -385,7 +389,7 @@ class Model:
             else:
                 rel_noise = 0.
 
-            for iteration in range(num_iterations):
+            for iteration in range(int(num_iterations)):
                 images_a, images_b   = self.train_data.next_batch(self.batch_size)
 
                 if images_a.dtype=='uint8':
@@ -907,6 +911,171 @@ class Model:
             # print('### Fake B Frac ###')
             # print(frac_list_fake_b)
         return mean_dice_score, frac_list_b, frac_list_fake_b, corr, mean_sk_dice
+
+
+    def test(self, batch_size=1, num_sample_volumes=2, checkpoint = 'best_dice', heart_data=True, datatype='test',
+             gen_img=False, group_b = None, group_fake_b=None):
+        """
+        Used when testing the trained model, calculates the defined metrics for the input set (train / val / test) and has option
+        to create new fake datasets.
+        :param batch_size:
+        :param num_sample_volumes:
+        :param checkpoint:
+        :param heart_data:
+        :param datatype:
+        :param gen_img:
+        :return:
+        """
+        self.log_dir = os.path.join('./logs', self.log_name, self.fold_name)
+        heart_data = heart_data
+        dtype = np.uint8
+
+        summary_dict = {}
+        summary_dict['nr_samples'] = num_sample_volumes
+
+        if datatype == 'train':
+            print('INFO:   Evaluating Test results for Training data')
+            print('')
+        elif datatype == 'validation':
+            print('INFO:   Evaluating Test results for Validation data')
+            print('')
+        elif datatype == 'test':
+            print('INFO:   Evaluating Test results for Test data')
+            print('')
+        else:
+            raise ValueError('Need to specify either train, validation or test split')
+
+        if gen_img:
+            fold_grp = group_b.create_group(self.fold_name)
+            fake_fold_grp = group_fake_b.create_group(self.fold_name)
+
+        with self.graph.as_default():
+            self.load_weights(type=checkpoint)
+
+            num_samples = self.data.nr_images * self.data.aug_factor
+            num_iterations = num_samples // batch_size
+
+            tot_dice = 0
+            tot_corr = 0
+            sample_vol_idx_list = []
+
+            for sample in range(num_sample_volumes):
+                print('INFO:   Currently iterating through sample volume {} (non-coded)'.format(sample))
+                dice = 0
+                frac_list_b = []
+                frac_list_fake_b = []
+                num_batches = 0
+
+                data_B = np.zeros(shape=[num_samples, self.imsize, self.imsize, self.b_chan], dtype=np.uint8)
+                data_fake_B = np.zeros(shape=[num_samples, self.imsize, self.imsize, self.b_chan], dtype=np.uint8)
+
+                # generate nested dict with information
+                summary_dict[sample] = {}
+
+                for iteration in range(int(num_iterations)):
+
+                    if iteration % 100 == 0:
+                        print('INFO:   Currently at iteration {} / {}'.format(iteration, int(num_iterations)))
+
+                    # iterate also over number of sample volumes
+                    if datatype == 'train':
+                        images_a, images_b, sample_vol_idx = self.train_data.test_image(img_idx=iteration,
+                                                                                       batch_size=batch_size,
+                                                                                       sample_vol=sample)
+                    elif datatype == 'validation':
+                        images_a, images_b, sample_vol_idx = self.validation_data.test_image(img_idx=iteration,
+                                                                                       batch_size=batch_size,
+                                                                                       sample_vol=sample)
+                    elif datatype == 'test':
+                        images_a, images_b, sample_vol_idx = self.test_data.test_image(img_idx=iteration,
+                                                                                       batch_size=batch_size,
+                                                                                       sample_vol=sample)
+
+                    assert images_a.shape[0] == images_b.shape[0] == 1, print('Shape should be 1 in first dimension')
+
+                    # if images_a.dtype=='uint8':
+                    #     images_a=images_a/float(2**8-1)
+                    # elif images_a.dtype=='uint16':
+                    #     images_a=images_a/float(2**16-1)
+                    # else:
+                    #     raise ValueError('Dataset A is not int8 or int16')
+                    # if images_b.dtype=='uint8':
+                    #     images_b=images_b/float(2**8-1)
+                    # elif images_b.dtype=='uint16':
+                    #     images_b=images_b/float(2**16-1)
+                    # else:
+                    #     raise ValueError('Dataset B is not int8 or int16')
+
+                    im_fake_B = self.sess.run(self.fake_B, feed_dict={self.A: images_a})
+                    im_fake_B = (np.minimum(np.maximum(im_fake_B, 0), 1) * (2 ** 8 - 1)).astype(np.uint8)
+
+                    if heart_data:
+                        rd_b = np.rint(images_b / 120)
+                        rd_fk_b = np.rint(im_fake_B / 120)
+                    else:
+                        raise ValueError("Currently only heart_data is supported for validation")
+
+
+                    if gen_img:
+                        data_fake_B[iteration, :, :, :] = rd_fk_b
+                        data_B[iteration,:,:,:] = rd_b
+
+                    flat_b = rd_b.flatten()
+                    flat_fk_b = rd_fk_b.flatten()
+
+                    sk_f1_macro = f1_score(flat_b, flat_fk_b, average='macro')
+
+                    # obtain pearson corr for collagen fraction
+                    if heart_data:
+                        epsi = 1e-10
+                        assert rd_b.shape[0] == 1
+
+                        for i in range(rd_b.shape[0]):
+                            coll_b = np.sum(rd_b[i, :, :, :] == 0)
+                            coll_fake_b = np.sum(rd_fk_b[i, :, :, :] == 0)
+
+                            cells_b = np.sum(rd_b[i, :, :, :] == 1)
+                            cells_fake_b = np.sum(rd_fk_b[i, :, :, :] == 1)
+
+                            fraction_b = coll_b / (epsi + cells_b)
+                            fraction_fake_b = coll_fake_b / (epsi + cells_fake_b)
+
+
+                    dice += sk_f1_macro
+                    frac_list_b.append(fraction_b)
+                    frac_list_fake_b.append(fraction_fake_b)
+
+                    num_batches += 1
+
+                    # get the mean dice score for the dataset
+                mean_dice_score = dice / num_batches
+                corr, _ = pearsonr(frac_list_b, frac_list_fake_b)
+
+                print('INFO:  Mean Dice Score of Sample {} is: {}'.format(sample, mean_dice_score))
+                print('INFO:  Mean Pearson Corr. of Sample {} is: {}'.format(sample, corr))
+
+                sample_vol_idx_list.append(sample_vol_idx)
+
+                summary_dict[sample]['dice'] = mean_dice_score
+                summary_dict[sample]['corr'] = corr
+                summary_dict[sample]['real_frac'] = frac_list_b
+                summary_dict[sample]['fake_frac'] = frac_list_fake_b
+                summary_dict[sample]['sample_idx'] = sample_vol_idx
+                tot_dice += mean_dice_score
+                tot_corr += corr
+
+                if gen_img:
+                    fold_grp.create_dataset(name='data_' + str(sample_vol_idx), data=data_B, dtype=dtype)
+                    fake_fold_grp.create_dataset(name='data_' + str(sample_vol_idx), data=data_fake_B, dtype=dtype)
+
+            tot_dice = tot_dice / num_sample_volumes
+            tot_corr = tot_corr / num_sample_volumes
+
+            print('INFO:  Total Mean Dice: {}'.format(tot_dice))
+            print('INFO:  Total Mean Pearson Corr: {}'.format(tot_corr))
+
+        return summary_dict
+
 
     #loading weights and other stuff, function from Christian Baumgartner's discriminative learning toolbox
     def load_weights(self, log_dir=None, type='latest', **kwargs):

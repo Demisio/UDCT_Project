@@ -10,6 +10,7 @@
 /notebooks/
 
 
-!/Models/Heart_dice_corr
-!/logs/Heart_dice_corr
+#!/Models/Heart_full
+#!/logs/Heart_full
 
+/Results/Heart_full/Images/

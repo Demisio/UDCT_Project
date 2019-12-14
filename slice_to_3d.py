@@ -48,6 +48,9 @@ def read_save_files(dimensions, file_list, file_name, segment, inp_noise=False):
             img[img == 1] = 0
             img[img == 2] = 120
             img[img == 3] = 255
+            # img[img == 1] = 1
+            # img[img == 2] = 2
+            # img[img == 3] = 0
         if inp_noise:
             # idea: add noise with variance of 0.05 --> converted to uint8 values, leads to roughly 12
             noise = np.rint(np.random.normal(0, 12, size=img.shape)).astype(np.int16)
@@ -76,12 +79,13 @@ if __name__ == '__main__':
 
     ## Segmented images
     segment = True
-    noise = True
+    noise = False
     data_path = './Data/Heart/Segmented/'
     if noise:
         save_path = './Data/Heart/3D/Segmented_noisy/'
     else:
-        save_path = './Data/Heart/3D/Segmented/'
+        # save_path = './Data/Heart/3D/Segmented/'
+        save_path = './Data/Heart/3D/Segmented_og_labels/'
 
     files = os.listdir(data_path)
     files.remove('old')
