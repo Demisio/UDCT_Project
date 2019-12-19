@@ -300,8 +300,14 @@ class Model:
                                            sum_over_batches=True,
                                            partial_dice=False)
 
+            # Settings to optimize GPU memory usage
+            config = tf.ConfigProto()
+            config.gpu_options.allow_growth = True
+            config.allow_soft_placement = True
+            config.gpu_options.per_process_gpu_memory_fraction = 1.0
+
             # Session & variables
-            self.sess = tf.Session(graph=self.graph)
+            self.sess = tf.Session(graph=self.graph, config=config)
             self.init = tf.global_variables_initializer()
 
 

@@ -10,7 +10,10 @@
 /notebooks/
 
 
-#!/Models/Heart_full
-#!/logs/Heart_full
+!/Models/Heart_full/
+!/logs/Heart_full/
+
+!/Models/Heart_limited/
+!/logs/Heart_limited/
 
 /Results/Heart_full/Images/

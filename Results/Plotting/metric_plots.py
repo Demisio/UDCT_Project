@@ -28,7 +28,7 @@ def coll_plot():
 
     # curr_path = os.path.join(evaldir + '/summary_dicts_fold' + str(1) + '.p')
 
-    for fold in range(1, 6):
+    for fold in range(4, 5):
         if mode == 'test':
             curr_path = os.path.join(evaldir + '/test_summary_dicts_fold' + str(fold) + '.p')
         elif mode == 'train':
@@ -52,8 +52,13 @@ def coll_plot():
 
             real, = axes.plot(np.arange(len(real_frac)), real_frac, '*b', alpha=0.5)
             fake, = axes.plot(np.arange(len(real_frac)), fake_frac, '*r', alpha=0.5)
-            axes.legend((real, fake),('Real_Images, Mean:  ' + str(real_mean) + ' $\pm$ ' + str(real_std),
-                                      'Fake_Images, Mean:  ' + str(fake_mean) + ' $\pm$ ' + str(fake_std)))
+            pc, = axes.plot(0, 0, linestyle="None")
+            dice, = axes.plot(0,0, linestyle='None')
+
+            axes.legend((real, fake, pc, dice),('Real_Images, Mean:  ' + str(real_mean) + ' $\pm$ ' + str(real_std),
+                                      'Fake_Images, Mean:  ' + str(fake_mean) + ' $\pm$ ' + str(fake_std),
+                                          'Pearson Corr:' + str(summary_dict[i]['corr']),
+                                          'Dice Score:' + str(summary_dict[i]['dice'])))
             if mode == 'test':
                 axes.set_title('Fold ' + str(fold) + ', Test Volume: ' + str(summary_dict[i]['sample_idx']))
             elif mode == 'train':
@@ -62,22 +67,19 @@ def coll_plot():
                 axes.set_title('Fold ' + str(fold) + ', Validation Volume: ' + str(summary_dict[i]['sample_idx']))
 
             axes.set_ylim([0,0.1])
+            axes.set_xlabel('Slice Nr.')
+            axes.set_ylabel('Collagen Ratio ('r'$\frac{collagen}{cells}$)')
 
             plt.show()
 
 if __name__ == '__main__':
     ###
-    evaldir = './../Heart_full'
-    split_path = './../train_test_split/splits'
+    # evaldir = './../Heart_full'
+    evaldir = './../Heart_limited'
 
-    # mode= 'test'
+    mode= 'test'
     # mode='train'
-    mode='validation'
-
-
-    # filename = os.path.join(split_path, 'train_fold_{}.txt'.format(fold))
-    # total_ids_list = [int(line.split('\n')[0]) for line in open(filename)]
-    # total_ids = np.sort(np.array(total_ids_list))
+    # mode='validation'
 
     ###
     coll_plot()

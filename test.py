@@ -80,9 +80,9 @@ from scipy.stats import pearsonr
 # print(ind)
 # print(labels)
 
-# path = './data_processing/aug_heart_data_noisy.h5'
-# data = h5py.File(path, 'r')
-# #
+path = './data_processing/aug_heart_data_noisy.h5'
+data = h5py.File(path, 'r')
+#
 # part_a = data['A/data_1'][0,20:40,20:40,0]
 # part_b = data['B/data_1'][0,20:40,20:40,0]
 #
@@ -129,17 +129,17 @@ from scipy.stats import pearsonr
 # print(c)
 
 
-a = np.asarray([1.4,2.6,4.7])
-# b = [2,3]
-c = np.asarray([1.3,2.8,5.0])
-# print(b)
-# b += a
-# print(b)
-#
-print(a)
-print(c)
-corr, _ = pearsonr(a,c)
-print(corr)
+# a = np.asarray([1.4,2.6,4.7])
+# # b = [2,3]
+# c = np.asarray([1.3,2.8,5.0])
+# # print(b)
+# # b += a
+# # print(b)
+# #
+# print(a)
+# print(c)
+# corr, _ = pearsonr(a,c)
+# print(corr)
 # print(corr)
 # a = np.array([(0,1,2,1,3,4,5,2)])
 # # b = np.array([(0,1,0,1),(3,4,5,2)])
@@ -158,13 +158,13 @@ print(corr)
 # print(score)
 # nr_img = imshape / aug_factor
 # print(nr_img)
-#
-# img_a = np.array(data['A/data_7'][13245,:,:,0])
-# img_b = np.array(data['B/data_7'][13245,:,:,0])
-#
-# toimage(img_a).show()
-# toimage(img_b).show()
-#
+
+img_a = np.array(data['A/data_7'][13245,:,:,0])
+img_b = np.array(data['B/data_7'][13245,:,:,0])
+
+toimage(img_a).show()
+toimage(img_b).show()
+
 
 # batch_indices = np.random.choice(np.arange(1,4), size=3, replace=False)
 # print(batch_indices)
@@ -198,10 +198,15 @@ print(corr)
 # test = tests(name='hi')
 # test.samples()
 # for i in range(3):
-#     test2.sample(d[i])
+#     test2.sample(d[i
+#     ])
 # np.random.shuffle(a)
 # np.random.shuffle(b)
 # np.random.shuffle(c)
 # print(a)
 # print(b)
 # print(c)
+
+# for i in range(0, 460, 46):
+#     print(i)
+#     if i

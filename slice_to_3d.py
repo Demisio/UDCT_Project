@@ -79,13 +79,14 @@ if __name__ == '__main__':
 
     ## Segmented images
     segment = True
-    noise = False
+    noise = True
     data_path = './Data/Heart/Segmented/'
     if noise:
-        save_path = './Data/Heart/3D/Segmented_noisy/'
+        save_path = './Data/Heart/3D/Segmented_lim_data_noisy/'
+        # save_path = './Data/Heart/3D/Segmented_noisy/'
     else:
         # save_path = './Data/Heart/3D/Segmented/'
-        save_path = './Data/Heart/3D/Segmented_og_labels/'
+        save_path = './Data/Heart/3D/Segmented_lim_data_og_labels/'
 
     files = os.listdir(data_path)
     files.remove('old')

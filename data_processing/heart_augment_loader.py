@@ -134,11 +134,12 @@ if __name__ == '__main__':
     rotate = True
     flip = True
     nr_crops = 4
-    filename = 'aug_heart_data_noisy.h5'
+    filename = 'aug_heart_lim_data.h5'
 
     raw_data_path = './../Data/Heart/3D/Raw/'
     # syn_data_path = './../Data/Heart/3D/Segmented/'
-    syn_data_path = './../Data/Heart/3D/Segmented_noisy/'
+    # syn_data_path = './../Data/Heart/3D/Segmented_noisy/'
+    syn_data_path = './../Data/Heart/3D/Segmented_lim_data_more/'
     # filename = '06_WK1_03_Segm_3D.nii.gz'
 
     raw_files = os.listdir(raw_data_path)

@@ -37,9 +37,9 @@ def shuffle(x):
 #     print(i)
 
 
-
-a = np.array([0.035,0.040,0.038])
-b = np.array([0.038, 0.038, 0.039])
-
-corr, _ = pearsonr(a,b)
-print(corr)
+#
+# a = np.array([0.035,0.040,0.038])
+# b = np.array([0.038, 0.038, 0.039])
+#
+# corr, _ = pearsonr(a,b)
+# print(corr)

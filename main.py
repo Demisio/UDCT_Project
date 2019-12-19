@@ -37,8 +37,9 @@ if __name__ == "__main__":
     sub_string['PatchGAN']     = 'Patch70'       # Choose the Gan type: 'Patch34', 'Patch70', 'Patch142', 'MultiPatch'
     sub_string['mode']         = 'training'      # 'train', 'gen_A', 'gen_B'
     sub_string['log_name']     = 'logs'          # log file directory
-    sub_string['checkpoint']   = 'latest'        # which checkpoint should be loaded for generators at test time 'latest' / 'best_f1'
+    sub_string['checkpoint']   = 'latest'        # which checkpoint should be loaded for generators at test time 'latest' / 'best_dice'
     sub_string['split']        = 'train'         # which split do you use (labelling of created dataset only)
+    # sub_string['amount_data']  = 'full'          # if full, normal mode with validation, if 'limited' then fuse train and validation set --> very limited data for evaluation, no sense, rather use more for training
 
     # Create complete dictonary
     var_dict  = sub_string.copy()

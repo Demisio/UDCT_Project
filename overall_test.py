@@ -14,9 +14,11 @@ import h5py
 
 if __name__ == "__main__":
 
+    save_path = './Results/Heart_limited'
+
     #Modify some parameters
     heart_data = True
-    gen_img = True
+    gen_img = False
     if gen_img:
         print('')
         print('INFO:   Variable gen_img is set to True, Images and metrics will be analysed')
@@ -26,7 +28,6 @@ if __name__ == "__main__":
         print('INFO:   Variable gen_img is set to False, no Images will be generated. Only metrics will be calculated')
         print('')
 
-    save_path = './Results/Heart_full'
     # List of floats
     sub_value_f = {}
     sub_value_f['lambda_c'] = 10.  # Loss multiplier for cycle
@@ -55,7 +56,7 @@ if __name__ == "__main__":
     sub_string['PatchGAN'] = 'Patch70'  # Choose the Gan type: 'Patch34', 'Patch70', 'Patch142', 'MultiPatch'
     sub_string['mode'] = 'training'  # 'train', 'gen_A', 'gen_B'
     sub_string['log_name'] = 'logs'  # log file directory
-    sub_string['checkpoint'] = 'latest'  # which checkpoint should be loaded for generators at test time 'latest' / 'best_f1'
+    sub_string['checkpoint'] = 'best_dice'  # which checkpoint should be loaded for generators at test time 'latest' / 'best_f1'
     sub_string['split'] = 'train'  # which split do you use (labelling of created dataset only)
 
     # Create complete dictonary
@@ -109,8 +110,9 @@ if __name__ == "__main__":
     group_fake_b = None
     num_sample_volumes = None
 
+    real_start_time = time.time()
     # Define the model
-    for fold in range (1,6):
+    for fold in range (4,5):
         start_time = time.time()
 
         #same model as in main but use fold=fold instead of an input
@@ -168,7 +170,7 @@ if __name__ == "__main__":
         summary_dict = model.test(
                                   batch_size=1,
                                   num_sample_volumes=num_sample_volumes,
-                                  checkpoint='best_dice',
+                                  checkpoint=var_dict['checkpoint'],
                                   heart_data=heart_data,
                                   gen_img=gen_img,
                                   datatype=var_dict['mode'],
@@ -188,6 +190,9 @@ if __name__ == "__main__":
 
         del model
         gc.collect()
+
+    total_elapsed_time = time.time() - real_start_time
+    print('Total elapsed time: %.3f minutes' % (elapsed_time / 60))
 
 
 # with open(os.path.join('Models', var_dict['name'], 'fold_' + str(var_dict['fold']), 'best_dice'), 'w') as file:
