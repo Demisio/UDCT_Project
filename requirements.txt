@@ -42,6 +42,7 @@ networkx==2.2
 nibabel==2.5.1
 notebook==5.7.8
 numpy==1.16.5
+opencv-python==4.1.0.25
 pandas==0.24.2
 pandocfilters==1.4.2
 pathlib==1.0.1
@@ -69,7 +70,6 @@ Send2Trash==1.5.0
 simplegeneric==0.8.1
 SimpleITK==1.2.4
 singledispatch==3.4.0.3
-sip==4.19.13
 six==1.13.0
 sklearn==0.0
 subprocess32==3.5.4
@@ -83,5 +83,3 @@ wcwidth==0.1.7
 webencodings==0.5.1
 Werkzeug==0.16.0
 widgetsnbextension==3.5.1
-
---extra-index-url=https://packagecloud.io/github/git-lfs/pypi/simple

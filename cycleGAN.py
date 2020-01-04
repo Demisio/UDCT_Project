@@ -9,7 +9,7 @@ import time
 import os
 import logging
 import sys
-import cv2
+# import cv2
 from sklearn.metrics import f1_score, roc_auc_score
 from scipy.stats import pearsonr
 from collections import deque
@@ -511,11 +511,11 @@ class Model:
                     im_fake_B=im_fake_B[np.newaxis,:,:,:]
                     cyc_B=cyc_B[np.newaxis,:,:,:]
 
-                if iteration%5==0:
-                    self.sneak_peak=Utilities.produce_tiled_images(images_a,images_b,im_fake_A, im_fake_B,cyc_A,cyc_B)
-
-                    cv2.imshow("",self.sneak_peak[:,:,[2,1,0]])
-                    cv2.waitKey(1)
+                # if iteration%5==0:
+                #     self.sneak_peak=Utilities.produce_tiled_images(images_a,images_b,im_fake_A, im_fake_B,cyc_A,cyc_B)
+                #
+                #     cv2.imshow("",self.sneak_peak[:,:,[2,1,0]])
+                #     cv2.waitKey(1)
 
                 if iteration%20==0:
                     print("\rTrain: {}/{} ({:.1f}%)".format(iteration+1, num_iterations,(iteration) * 100 / (num_iterations-1)) + \
