@@ -920,7 +920,7 @@ class Model:
 
 
     def test(self, batch_size=1, num_sample_volumes=2, checkpoint = 'best_dice', heart_data=True, datatype='test',
-             gen_img=False, group_b = None, group_fake_b=None):
+             gen_img=False, group_a=None, group_b = None, group_fake_b=None):
         """
         Used when testing the trained model, calculates the defined metrics for the input set (train / val / test) and has option
         to create new fake datasets.
@@ -935,6 +935,8 @@ class Model:
         self.log_dir = os.path.join('./logs', self.log_name, self.fold_name)
         heart_data = heart_data
         dtype = np.uint8
+        num_sample_volumes = num_sample_volumes
+        print('INFO:   Number of sample volumes: ' + str(num_sample_volumes))
 
         summary_dict = {}
         summary_dict['nr_samples'] = num_sample_volumes
@@ -952,6 +954,7 @@ class Model:
             raise ValueError('Need to specify either train, validation or test split')
 
         if gen_img:
+            fold_raw = group_a.create_group(self.fold_name)
             fold_grp = group_b.create_group(self.fold_name)
             fake_fold_grp = group_fake_b.create_group(self.fold_name)
 
@@ -962,16 +965,19 @@ class Model:
             num_iterations = num_samples // batch_size
 
             tot_dice = 0
+            tot_dice_all = np.zeros(shape=(3))
             tot_corr = 0
             sample_vol_idx_list = []
 
             for sample in range(num_sample_volumes):
                 print('INFO:   Currently iterating through sample volume {} (non-coded)'.format(sample))
                 dice = 0
+                dice_all = np.zeros(shape=(3))
                 frac_list_b = []
                 frac_list_fake_b = []
                 num_batches = 0
 
+                data_A = np.zeros(shape=[num_samples, self.imsize, self.imsize, self.b_chan], dtype=np.uint8)
                 data_B = np.zeros(shape=[num_samples, self.imsize, self.imsize, self.b_chan], dtype=np.uint8)
                 data_fake_B = np.zeros(shape=[num_samples, self.imsize, self.imsize, self.b_chan], dtype=np.uint8)
 
@@ -980,7 +986,7 @@ class Model:
 
                 for iteration in range(int(num_iterations)):
 
-                    if iteration % 100 == 0:
+                    if iteration % 500 == 0:
                         print('INFO:   Currently at iteration {} / {}'.format(iteration, int(num_iterations)))
 
                     # iterate also over number of sample volumes
@@ -1023,13 +1029,29 @@ class Model:
 
 
                     if gen_img:
-                        data_fake_B[iteration, :, :, :] = rd_fk_b
-                        data_B[iteration,:,:,:] = rd_b
+                        # convert values of UDCT to values used in Unet for use of GAN-augmented images
+                        unet_b = np.copy(rd_b)
+                        unet_fk_b = np.copy(rd_fk_b)
+
+                        unet_b[unet_b == 2] = 20
+                        unet_b[unet_b == 1] = 2
+                        unet_b[unet_b == 0] = 1
+                        unet_b[unet_b == 20] = 0
+
+                        unet_fk_b[unet_fk_b == 2] = 20
+                        unet_fk_b[unet_fk_b == 1] = 2
+                        unet_fk_b[unet_fk_b == 0] = 1
+                        unet_fk_b[unet_fk_b == 20] = 0
+
+                        data_fake_B[iteration, :, :, :] = unet_fk_b
+                        data_B[iteration,:,:,:] = unet_b
+                        data_A[iteration,:,:,:] = images_a
 
                     flat_b = rd_b.flatten()
                     flat_fk_b = rd_fk_b.flatten()
 
                     sk_f1_macro = f1_score(flat_b, flat_fk_b, average='macro')
+                    sk_f1_all = f1_score(flat_b, flat_fk_b, average=None)
 
                     # obtain pearson corr for collagen fraction
                     if heart_data:
@@ -1037,17 +1059,19 @@ class Model:
                         assert rd_b.shape[0] == 1
 
                         for i in range(rd_b.shape[0]):
-                            coll_b = np.sum(rd_b[i, :, :, :] == 0)
-                            coll_fake_b = np.sum(rd_fk_b[i, :, :, :] == 0)
+                            coll_b = np.count_nonzero(rd_b[i, :, :, :] == 0)
+                            coll_fake_b = np.count_nonzero(rd_fk_b[i, :, :, :] == 0)
 
-                            cells_b = np.sum(rd_b[i, :, :, :] == 1)
-                            cells_fake_b = np.sum(rd_fk_b[i, :, :, :] == 1)
+                            cells_b = np.count_nonzero(rd_b[i, :, :, :] == 1)
+                            cells_fake_b = np.count_nonzero(rd_fk_b[i, :, :, :] == 1)
 
                             fraction_b = coll_b / (epsi + cells_b)
                             fraction_fake_b = coll_fake_b / (epsi + cells_fake_b)
 
 
                     dice += sk_f1_macro
+                    dice_all += sk_f1_all
+
                     frac_list_b.append(fraction_b)
                     frac_list_fake_b.append(fraction_fake_b)
 
@@ -1055,28 +1079,40 @@ class Model:
 
                     # get the mean dice score for the dataset
                 mean_dice_score = dice / num_batches
+                mean_dice_all = dice_all / num_batches
+
                 corr, _ = pearsonr(frac_list_b, frac_list_fake_b)
 
+                print('INFO:  Indiv. Dice Scores of Sample {} are: {}'.format(sample, mean_dice_all))
                 print('INFO:  Mean Dice Score of Sample {} is: {}'.format(sample, mean_dice_score))
                 print('INFO:  Mean Pearson Corr. of Sample {} is: {}'.format(sample, corr))
 
                 sample_vol_idx_list.append(sample_vol_idx)
 
                 summary_dict[sample]['dice'] = mean_dice_score
+                summary_dict[sample]['all_dice'] = mean_dice_all
                 summary_dict[sample]['corr'] = corr
                 summary_dict[sample]['real_frac'] = frac_list_b
                 summary_dict[sample]['fake_frac'] = frac_list_fake_b
                 summary_dict[sample]['sample_idx'] = sample_vol_idx
+
                 tot_dice += mean_dice_score
+                tot_dice_all += mean_dice_all
                 tot_corr += corr
 
                 if gen_img:
+                    fold_raw.create_dataset(name='data_' + str(sample_vol_idx), data=data_A, dtype=dtype)
                     fold_grp.create_dataset(name='data_' + str(sample_vol_idx), data=data_B, dtype=dtype)
                     fake_fold_grp.create_dataset(name='data_' + str(sample_vol_idx), data=data_fake_B, dtype=dtype)
 
             tot_dice = tot_dice / num_sample_volumes
+            tot_dice_all = tot_dice_all / num_sample_volumes
             tot_corr = tot_corr / num_sample_volumes
 
+            if gen_img:
+                fold_raw.create_dataset(name='sample_idx', data=sample_vol_idx_list)
+
+            print('INFO:  Total Indiv. Dice: {}'.format(tot_dice_all))
             print('INFO:  Total Mean Dice: {}'.format(tot_dice))
             print('INFO:  Total Mean Pearson Corr: {}'.format(tot_corr))
 

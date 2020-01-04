@@ -1,3 +1,8 @@
+'''
+Script creates volumes of same size as full heart data but repeats the same slice several times (defined according to parameters)
+step_size (initial spacing of slices), number_new_slices (how many slices per volume), factor (factor to help spacing of slices)
+'''
+
 import numpy as np
 import nibabel as nib
 import logging
@@ -8,12 +13,12 @@ np.random.seed(42)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
 
 ## change settings here
-data_path = './../Data/Heart/3D/Raw/'
-save_path = './../Data/Heart/3D/Raw_lim_data/'
-#hardcoded for a volume of 460 slices, want 18 slices per volume with 25 in between
-step_size = 23
-number_new_slices = 20
-factor = 1
+data_path = './../Data/Heart/3D/Segmented_noisy/'
+save_path = './../Data/Heart/3D/Segmented_very_lim_data/'
+#hardcoded for a volume of 460 slices, want 20 slices per volume with 23 in between
+step_size = 92 #23
+number_new_slices = 5 #20
+factor = 14  #1
 
 files = os.listdir(data_path)
 

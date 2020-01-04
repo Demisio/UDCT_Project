@@ -108,10 +108,15 @@ if __name__ == '__main__':
 
 
     nr_crops = 4
-    filename = 'aug_heart_data_test.h5'
 
+    filename = 'aug_heart_data_test.h5'
     raw_data_path = './../Data/Heart/3D/Raw/'
     syn_data_path = './../Data/Heart/3D/Segmented_noisy/'
+
+    ## Loading non-augmented, limited data, can still use full Raw data
+    # filename = 'non_aug_heart_data_limited.h5'
+    # raw_data_path = './../Data/Heart/3D/Raw/'
+    # syn_data_path = './../Data/Heart/3D/Segmented_very_lim_data/'
 
     raw_files = os.listdir(raw_data_path)
     syn_files = os.listdir(syn_data_path)

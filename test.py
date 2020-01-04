@@ -15,6 +15,7 @@ from scipy.misc import imshow
 from scipy.misc import toimage
 from sklearn.metrics import f1_score, roc_auc_score
 from scipy.stats import pearsonr
+import matplotlib.pyplot as plt
 #######################################################################################################################
 # os.environ["CUDA_VISIBLE_DEVICES"]= "0"
 #
@@ -80,8 +81,8 @@ from scipy.stats import pearsonr
 # print(ind)
 # print(labels)
 
-path = './data_processing/aug_heart_data_noisy.h5'
-data = h5py.File(path, 'r')
+# path = './data_processing/aug_heart_data_noisy.h5'
+# data = h5py.File(path, 'r')
 #
 # part_a = data['A/data_1'][0,20:40,20:40,0]
 # part_b = data['B/data_1'][0,20:40,20:40,0]
@@ -159,11 +160,11 @@ data = h5py.File(path, 'r')
 # nr_img = imshape / aug_factor
 # print(nr_img)
 
-img_a = np.array(data['A/data_7'][13245,:,:,0])
-img_b = np.array(data['B/data_7'][13245,:,:,0])
-
-toimage(img_a).show()
-toimage(img_b).show()
+# img_a = np.array(data['A/data_7'][13245,:,:,0])
+# img_b = np.array(data['B/data_7'][13245,:,:,0])
+#
+# toimage(img_a).show()
+# toimage(img_b).show()
 
 
 # batch_indices = np.random.choice(np.arange(1,4), size=3, replace=False)
@@ -210,3 +211,43 @@ toimage(img_b).show()
 # for i in range(0, 460, 46):
 #     print(i)
 #     if i
+
+# arr1 = np.asarray([1,1,1,1])
+# f = h5py.File('test1.h5', "w")
+# group_b = f.create_group('B_real')
+# group_b.create_dataset(name='data_1', data=arr1)
+#
+# arr2 = np.asarray([2,2,2,2])
+# g = h5py.File('test2.h5', "w")
+# group_b = g.create_group('B_real')
+# group_b.create_dataset(name='data_2', data=arr2)
+
+# h = h5py.File('test_combined.h5', 'w')
+# data1 = h5py.File('test1.h5', 'r')
+# data2 = h5py.File('test2.h5', 'r')
+#
+# h = data1 + data2
+
+path = './Results/Heart_very_lim_data/Images/pred_train.h5'
+
+data = h5py.File(path, 'r')
+# for name in data['A/fold_3']:
+#     print(name)
+
+img_a = np.array(data['A/fold_3/data_1'][0,:,:,0])
+img_b = np.array(data['B_real/fold_3/data_1'][0,:,:,0])
+img_b_fake = np.array(data['B_fake/fold_3/data_1'][0,:,:,0])
+
+# print(np.count_nonzero([img_b == 2]) + np.count_nonzero([img_b == 1]) + np.count_nonzero([img_b == 0]))
+# print(np.count_nonzero([img_a == 130]))
+
+
+fig, axes = plt.subplots(1, 3)
+
+plt.gray()
+
+axes[0].imshow(img_a, interpolation='nearest')
+axes[1].imshow(img_b, interpolation='nearest')
+axes[2].imshow(img_b_fake, interpolation='nearest')
+
+plt.show()

@@ -134,13 +134,15 @@ if __name__ == '__main__':
     rotate = True
     flip = True
     nr_crops = 4
-    filename = 'aug_heart_lim_data.h5'
+    filename = 'aug_heart_data_noisy.h5'  #'gan_data.h5'
 
-    raw_data_path = './../Data/Heart/3D/Raw/'
-    # syn_data_path = './../Data/Heart/3D/Segmented/'
-    # syn_data_path = './../Data/Heart/3D/Segmented_noisy/'
-    syn_data_path = './../Data/Heart/3D/Segmented_lim_data_more/'
-    # filename = '06_WK1_03_Segm_3D.nii.gz'
+    raw_data_path = './../Data/Heart/3D/Raw/'                               # use for limited data and full data
+    # raw_data_path = './../Data/Heart/3D/Raw_very_lim_data/'               # use when creating GAN data for Unet
+
+    # syn_data_path = './../Data/Heart/3D/Segmented/'                       # tests without label noise, old
+    syn_data_path = './../Data/Heart/3D/Segmented_noisy/'                   # tests with label noise, full data
+    # syn_data_path = './../Data/Heart/3D/Segmented_very_lim_data/'           # tests with label noise & limited data
+    # syn_data_path = './../Data/Heart/3D/Segmented_og_labels_very_lim/'    # use when creating GAN data for Unet
 
     raw_files = os.listdir(raw_data_path)
     syn_files = os.listdir(syn_data_path)

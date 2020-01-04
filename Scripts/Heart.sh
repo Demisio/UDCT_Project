@@ -10,6 +10,9 @@ python main.py --dataset=./data_processing/aug_heart_data_noisy.h5 --name=Heart_
 
 #train with limited data
 python main.py --dataset=./data_processing/aug_heart_lim_data.h5 --name=Heart_limited --log_name=Heart_limited --fold=4
+python main.py --dataset=./data_processing/aug_heart_very_lim_data.h5 --name=Heart_very_lim_data --log_name=Heart_very_lim_data --fold=3
+python main.py --dataset=./data_processing/aug_heart_data_test.h5 --name=Heart_no_aug --log_name=Heart_no_aug --fold=3
+python main.py --dataset=./data_processing/non_aug_heart_data_limited.h5 --name=Heart_no_aug_lim_dat --log_name=Heart_no_aug_lim_dat --fold=3
 
 
 #generate stuff, specify the log_name for log directory (files for checkpoints etc) and which type of checkpoint you want (e.g. latest or best_f1)
@@ -23,6 +26,10 @@ python overall_test.py --dataset=./data_processing/aug_heart_data_test.h5 --name
 python overall_test.py --dataset=./data_processing/aug_heart_data_test.h5 --name=Heart_limited --log_name=Heart_limited --mode=test --checkpoint=latest
 python overall_test.py --dataset=./data_processing/aug_heart_data_test.h5 --name=Heart_limited --log_name=Heart_limited --mode=validation --checkpoint=latest
 python overall_test.py --dataset=./data_processing/aug_heart_data_test.h5 --name=Heart_limited --log_name=Heart_limited --mode=train --checkpoint=latest
+
+python overall_test.py --dataset=./data_processing/aug_heart_data_test.h5 --name=Heart_very_lim_data --log_name=Heart_very_lim_data --mode=test --checkpoint=latest
+
+python overall_test.py --dataset=./data_processing/aug_heart_data.h5 --name=Heart_very_lim_data --log_name=Heart_very_lim_data --mode=train --checkpoint=latest
 
 
 

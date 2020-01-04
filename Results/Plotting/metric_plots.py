@@ -28,7 +28,7 @@ def coll_plot():
 
     # curr_path = os.path.join(evaldir + '/summary_dicts_fold' + str(1) + '.p')
 
-    for fold in range(4, 5):
+    for fold in range(1, 6):
         if mode == 'test':
             curr_path = os.path.join(evaldir + '/test_summary_dicts_fold' + str(fold) + '.p')
         elif mode == 'train':
@@ -74,8 +74,8 @@ def coll_plot():
 
 if __name__ == '__main__':
     ###
-    # evaldir = './../Heart_full'
-    evaldir = './../Heart_limited'
+    evaldir = './../Heart_full'
+    # evaldir = './../Heart_limited'
 
     mode= 'test'
     # mode='train'

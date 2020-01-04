@@ -14,7 +14,12 @@ import h5py
 
 if __name__ == "__main__":
 
-    save_path = './Results/Heart_limited'
+    # save_path = './Results/Heart_very_lim_data'
+    save_path = './Results/Heart_full'
+    # save_path = './Results/Heart_no_aug'
+    # save_path = './Results/Heart_no_aug_lim_dat'
+
+    start_fold = 3
 
     #Modify some parameters
     heart_data = True
@@ -95,10 +100,10 @@ if __name__ == "__main__":
 
     # Restrict usage of GPUs
     cuda_environment["CUDA_VISIBLE_DEVICES"] = str(var_dict['gpu'])
-    with open('Models/' + var_dict['name'] + '/' + 'fold_' + str(var_dict['fold']) + '/' + var_dict[
-        'name'] + "_params.txt", "w") as myfile:
-        for key in sorted(var_dict):
-            myfile.write(key + "," + str(var_dict[key]) + "\n")
+    # with open('Models/' + var_dict['name'] + '/' + 'fold_' + str(var_dict['fold']) + '/' + var_dict[
+    #     'name'] + "_params.txt", "w") as myfile:
+    #     for key in sorted(var_dict):
+    #         myfile.write(key + "," + str(var_dict[key]) + "\n")
 
     # Find out, if whole network is needed or only the generators
     gen_only = False
@@ -106,13 +111,14 @@ if __name__ == "__main__":
         gen_only = True
 
     # for later use
+    group_a = None
     group_b = None
     group_fake_b = None
     num_sample_volumes = None
 
     real_start_time = time.time()
     # Define the model
-    for fold in range (4,5):
+    for fold in range (start_fold,start_fold+1):
         start_time = time.time()
 
         #same model as in main but use fold=fold instead of an input
@@ -143,25 +149,31 @@ if __name__ == "__main__":
         if heart_data:
             if var_dict['mode'] == 'test':
                 num_sample_volumes = 2
-                if gen_img and fold == 1:
+                if gen_img and fold == start_fold:
                     filename = './Results/' + var_dict['log_name'] +'/Images/pred_test.h5'
+                    print('INFO:   Created h5 file: ' + str(filename))
                     f = h5py.File(filename, "w")
+                    group_a = f.create_group('A')
                     group_b = f.create_group('B_real')
                     group_fake_b = f.create_group('B_fake')
 
             elif var_dict['mode'] == 'validation':
                 num_sample_volumes = 2
-                if gen_img and fold == 1:
+                if gen_img and fold == start_fold:
                     filename = './Results/' + var_dict['log_name'] +'/Images/pred_validation.h5'
+                    print('INFO:   Created h5 file: ' + str(filename))
                     f = h5py.File(filename, "w")
+                    group_a = f.create_group('A')
                     group_b = f.create_group('B_real')
                     group_fake_b = f.create_group('B_fake')
 
             elif var_dict['mode'] == 'train':
                 num_sample_volumes = 6
-                if gen_img and fold == 1:
+                if gen_img and fold == start_fold:
                     filename = './Results/' + var_dict['log_name'] +'/Images/pred_train.h5'
+                    print('INFO:   Created h5 file: ' + str(filename))
                     f = h5py.File(filename, "w")
+                    group_a = f.create_group('A')
                     group_b = f.create_group('B_real')
                     group_fake_b = f.create_group('B_fake')
             else:
@@ -174,6 +186,7 @@ if __name__ == "__main__":
                                   heart_data=heart_data,
                                   gen_img=gen_img,
                                   datatype=var_dict['mode'],
+                                  group_a=group_a,
                                   group_b=group_b,
                                   group_fake_b=group_fake_b)
 
