@@ -13,8 +13,11 @@ All paths are relative. If submission of a batch file is desired, some paths mig
 
 A short description of the most relevant scripts is provided at the bottom of the README.
 
-Due to limited space for storing large files on github, only one pretrained model has been uploaded (full data model).
-Additional pre-trained networks can be requested by writing an email to: 
+Due to limited space for storing large files on github, pretrained models were uploaded to polybox
+(https://polybox.ethz.ch/index.php/s/7bURunZHRiAVNMY). Open the link, navigate into the folder UDCT
+and copy the folder logs into this UDCT directory after cloning it.
+
+Should problems arise, pre-trained networks can be requested by writing an email to: 
 [cenerd@student.ethz.ch](mailto:cenerd@student.ethz.ch)
 ## Installation
 1.  Clone or download the repository:
@@ -30,6 +33,11 @@ Additional pre-trained networks can be requested by writing an email to:
     <pre>Python 2.7, TF 1.4: CUDA 8.0 / CUDNN 6.0
     Python 3.6, TF 1.5: CUDA 9.0 / CUDNN 7.0 # (not recommended) </pre>
     
+## Copying pre-trained Models (optional)
+Due to limited space for storing large files on github, pretrained models were uploaded to polybox
+(https://polybox.ethz.ch/index.php/s/7bURunZHRiAVNMY). Open the link, navigate into the folder UDCT
+and copy the folder logs into this UDCT directory after cloning it.
+
 ## Creating a Dataset, Data Splits and Log Folders
 1.  Images are given in ./Data/Heart/3D. Creating a hdf5 dataset is achieved by navigating into the folder dataprocessing
     and executing the file heart_augment_loader.py 
