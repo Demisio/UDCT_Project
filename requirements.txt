@@ -73,7 +73,7 @@ sip==4.19.13
 six==1.13.0
 sklearn==0.0
 subprocess32==3.5.4
-tensorflow-gpu==1.4.0
+tensorflow-gpu==1.15.0
 tensorflow-tensorboard==0.4.0
 terminado==0.8.2
 testpath==0.4.2
