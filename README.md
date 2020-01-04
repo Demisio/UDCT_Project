@@ -21,7 +21,7 @@ Should problems arise, pre-trained networks can be requested by writing an email
 [cenerd@student.ethz.ch](mailto:cenerd@student.ethz.ch)
 ## Installation
 1.  Clone or download the repository:
-    <pre> git clone https://github.com/Demisio/UDCT.git </pre>
+    <pre> git clone https://github.com/Demisio/UDCT_Project.git </pre>
 2.  Create an environment for the packages to be installed. With conda, e.g (less tested with python 3.6 & TF 1.5 but seems to work): 
     <pre >conda create -n UDCT python=2.7 
     conda create -n UDCT python=3.6 # (not recommended)</pre>
