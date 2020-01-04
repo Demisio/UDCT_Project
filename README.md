@@ -21,14 +21,14 @@ Additional pre-trained networks can be requested by writing an email to:
     <pre> git clone https://github.com/Demisio/UDCT.git </pre>
 2.  Create an environment for the packages to be installed. With conda, e.g (less tested with python 3.6 & TF 1.5 but seems to work): 
     <pre >conda create -n UDCT python=2.7 
-    conda create -n UDCT python=3.6</pre>
+    conda create -n UDCT python=3.6 # (not recommended)</pre>
 
 2.  Install requirements (include TF 1.4, some packages might not be compatible with python 3, 
     need to manually remove these packages if python 3 is absolutely desired) via: 
     <pre> pip install -r requirements.txt </pre>
 4.  Required CUDA / CUDNN versions:
     <pre>Python 2.7, TF 1.4: CUDA 8.0 / CUDNN 6.0
-    Python 3.6, TF 1.5: CUDA 9.0 / CUDNN 7.0</pre>
+    Python 3.6, TF 1.5: CUDA 9.0 / CUDNN 7.0 # (not recommended) </pre>
     
 ## Creating a Dataset, Data Splits and Log Folders
 1.  Images are given in ./Data/Heart/3D. Creating a hdf5 dataset is achieved by navigating into the folder dataprocessing
