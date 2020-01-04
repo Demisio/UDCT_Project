@@ -3,13 +3,19 @@ Modified version of the UDCT cycle-GAN. Uses a different data processing pipelin
 
 This version uses Tensorflow(-GPU) 1.4 and Python 2.7 (chosen for original implementation)
 
-Tests with python 3.6 and TF-GPU 1.5 were also done and the code seemed to work (in depth-testing still required, currently not advised to use this configuration)
+Tests with python 3.6 and TF-GPU 1.5 were also done and the code seemed to work (in depth-testing still required, 
+currently not advised to use this configuration since requirements are given for
+Python 2.7 and TF 1.4)
 Other requirements are provided in the file requirements.txt.
 
 Note: The code was executed on a cluster via an interactive terminal shell in the code directory. 
 All paths are relative. If submission of a batch file is desired, some paths might have to be set to absolute ones.
 
 A short description of the most relevant scripts is provided at the bottom of the README.
+
+Due to limited space for storing large files on github, only one pretrained model has been uploaded (full data model).
+Additional pre-trained networks can be requested by writing an email to: 
+[cenerd@student.ethz.ch](mailto:cenerd@student.ethz.ch)
 ## Installation
 1.  Clone or download the repository:
     <pre> git clone https://github.com/Demisio/UDCT.git </pre>
